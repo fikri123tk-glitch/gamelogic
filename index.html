@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Belajar Coding! 💻</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Courier+Prime:wght@700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ╔══════════════════════════════════════╗
+       ║         SCREEN: HOME                ║
+       ╚══════════════════════════════════════╝ -->
+  <div id="screen-home" class="screen active">
+
+    <!-- Hero / Header -->
+    <div class="home-hero">
+      <div id="home-avatar" class="hero-avatar"></div>
+      <h1>Belajar Coding! 💻</h1>
+      <p class="home-subtitle">3 game seru buat kamu jago berpikir logis 🧠✨</p>
+
+      <div class="score-badge">
+        <div class="score-item">
+          <div id="total-score" class="score-num score-primary">0</div>
+          <div class="score-label">TOTAL POIN 🏆</div>
+        </div>
+        <div class="score-divider"></div>
+        <div class="score-item">
+          <div id="completed-count" class="score-num score-secondary">0/3</div>
+          <div class="score-label">SELESAI ✅</div>
+        </div>
+      </div>
+
+      <div id="all-done-msg" class="all-done-msg hidden">
+        🌟 Luar biasa! Kamu sudah selesaikan semua game!
+      </div>
+    </div>
+
+    <!-- Game Cards -->
+    <div class="game-list">
+
+      <!-- Card 1: Urutan Langkah -->
+      <div class="game-card" id="card-sequence">
+        <div class="card-body">
+          <div class="card-icon icon-orange">📋</div>
+          <div class="card-info">
+            <div class="card-title-row">
+              <span class="card-title">Urutan Langkah</span>
+              <span class="badge-done hidden" id="done-sequence">✓ Selesai</span>
+            </div>
+            <div class="card-desc">Susun urutan kegiatan yang benar! 🎯</div>
+            <div class="card-meta" id="meta-sequence">5 soal &nbsp;•&nbsp; Belum dimainkan</div>
+          </div>
+          <button class="btn-start btn-orange" id="btn-sequence" onclick="startGame('sequence')">▶ Mulai</button>
+        </div>
+        <div class="card-progress">
+          <div class="card-progress-bar bar-orange" id="prog-sequence"></div>
+        </div>
+      </div>
+
+      <!-- Card 2: Kalau / Kalau Tidak -->
+      <div class="game-card" id="card-ifelse">
+        <div class="card-body">
+          <div class="card-icon icon-teal">🔀</div>
+          <div class="card-info">
+            <div class="card-title-row">
+              <span class="card-title">Kalau / Kalau Tidak</span>
+              <span class="badge-done hidden" id="done-ifelse">✓ Selesai</span>
+            </div>
+            <div class="card-desc">Bantu robot buat keputusan yang tepat! 🤖</div>
+            <div class="card-meta" id="meta-ifelse">5 soal &nbsp;•&nbsp; Belum dimainkan</div>
+          </div>
+          <button class="btn-start btn-teal" id="btn-ifelse" onclick="startGame('ifelse')">▶ Mulai</button>
+        </div>
+        <div class="card-progress">
+          <div class="card-progress-bar bar-teal" id="prog-ifelse"></div>
+        </div>
+      </div>
+
+      <!-- Card 3: Pola & Perulangan -->
+      <div class="game-card" id="card-pattern">
+        <div class="card-body">
+          <div class="card-icon icon-purple">🔄</div>
+          <div class="card-info">
+            <div class="card-title-row">
+              <span class="card-title">Pola & Perulangan</span>
+              <span class="badge-done hidden" id="done-pattern">✓ Selesai</span>
+            </div>
+            <div class="card-desc">Temukan pola dan tebak hasilnya! 🧩</div>
+            <div class="card-meta" id="meta-pattern">5 soal &nbsp;•&nbsp; Belum dimainkan</div>
+          </div>
+          <button class="btn-start btn-purple" id="btn-pattern" onclick="startGame('pattern')">▶ Mulai</button>
+        </div>
+        <div class="card-progress">
+          <div class="card-progress-bar bar-purple" id="prog-pattern"></div>
+        </div>
+      </div>
+
+      <!-- Info box -->
+      <div class="info-box">
+        <div class="info-title">🤔 Coding itu apa sih?</div>
+        <div class="info-text">
+          Coding itu seperti kita kasih instruksi ke robot atau komputer! 🤖<br>
+          Sama seperti kamu bilang ke adik:
+          <em>"ambil piring → cuci → keringkan"</em><br>
+          Komputer juga paham perintah seperti itu! Yuk latihan! 💪
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /screen-home -->
+
+
+  <!-- ╔══════════════════════════════════════╗
+       ║         SCREEN: GAME                ║
+       ╚══════════════════════════════════════╝ -->
+  <div id="screen-game" class="screen">
+
+    <!-- Sticky Header -->
+    <div class="game-header" id="game-header">
+      <button class="btn-back" onclick="goHome()">←</button>
+      <span id="header-icon" class="header-icon"></span>
+      <div class="header-info">
+        <div id="header-title" class="header-title"></div>
+        <div id="header-score" class="header-score">🏆 Skor: 0</div>
+      </div>
+      <div id="game-avatar" class="game-avatar"></div>
+    </div>
+
+    <!-- Game area: diisi oleh JS -->
+    <div class="game-content" id="game-content"></div>
+
+  </div><!-- /screen-game -->
+
+
+  <!-- ╔══════════════════════════════════════╗
+       ║         SCREEN: RESULT              ║
+       ╚══════════════════════════════════════╝ -->
+  <div id="screen-result" class="screen screen-result">
+    <div class="result-box">
+      <div class="result-emoji">🎉</div>
+      <h2 id="result-title" class="result-title"></h2>
+      <p class="result-subtitle">Kamu sudah selesaikan</p>
+      <p id="result-game-name" class="result-game-name"></p>
+
+      <div class="result-score-box" id="result-score-box">
+        <div id="result-score-num" class="result-score-num"></div>
+        <div class="result-score-label">poin kamu dapat! 🏆</div>
+      </div>
+
+      <div id="result-all-done" class="result-all-done hidden"></div>
+
+      <div class="result-btns">
+        <button id="btn-play-again" class="btn-play-again" onclick="playAgain()">🔁 Main Lagi</button>
+        <button class="btn-home" onclick="goHome()">🏠 Menu Utama</button>
+      </div>
+    </div>
+  </div><!-- /screen-result -->
+
+
+  <script src="app.js"></script>
+</body>
+</html>
