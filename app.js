@@ -1,615 +1,641 @@
-/* ═══════════════════════════════════════════════════════════════
-   app.js — Game Logika Coding untuk Anak SD
-   Vanilla JavaScript, tanpa framework
-═══════════════════════════════════════════════════════════════ */
+document.addEventListener("mousemove", function(e) {
+  var g = document.getElementById("cursor-glow");
+  g.style.left = e.clientX + "px";
+  g.style.top  = e.clientY + "px";
+});
 
-// ─────────────────────────────────────────────
-//  AVATAR & STATE GLOBAL
-// ─────────────────────────────────────────────
+// ── Avatar ────────────────────────────────────────────
 var AVATARS = ["🐱","🐶","🐸","🦊","🐼","🐨","🦁","🐯"];
 var AVATAR  = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-
 document.getElementById("home-avatar").textContent = AVATAR;
-document.getElementById("game-avatar").textContent = AVATAR;
 
-var gameState = {
+// ── Global state ─────────────────────────────────────
+var GS = {
   scores:    { sequence: 0, ifelse: 0, pattern: 0 },
   completed: { sequence: false, ifelse: false, pattern: false },
-  active:    null,
+  active: null,
 };
 
-var GAME_META = {
-  sequence: { title: "Urutan Perintah",   icon: "📋", color: "#FF6B35", shadow: "#c94f1e" },
-  ifelse:   { title: "Percabangan",       icon: "🔀", color: "#4ECDC4", shadow: "#35a9a2" },
-  pattern:  { title: "Pola & Perulangan", icon: "🔄", color: "#9B5DE5", shadow: "#7340b5" },
+var META = {
+  sequence: { title: "Urutan Perintah",   color: "var(--g1)", max: 0 },
+  ifelse:   { title: "Percabangan",       color: "var(--g2)", max: 0 },
+  pattern:  { title: "Pola & Perulangan", color: "var(--g3)", max: 0 },
 };
 
-// ─────────────────────────────────────────────
-//  SCREEN NAVIGATION
-// ─────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────
+function $(id)       { return document.getElementById(id); }
+function setH(id, h) { $(id).innerHTML = h; }
+
 function showScreen(id) {
-  document.querySelectorAll(".screen").forEach(function(s) { s.classList.remove("active"); });
-  document.getElementById("screen-" + id).classList.add("active");
+  document.querySelectorAll(".screen").forEach(function(s) {
+    s.classList.remove("active");
+  });
+  $(id).classList.add("active");
 }
 
-function goHome() { refreshHomeUI(); showScreen("home"); }
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
 
-function refreshHomeUI() {
-  var total = Object.values(gameState.scores).reduce(function(a, b) { return a + b; }, 0);
-  var done  = Object.values(gameState.completed).filter(Boolean).length;
+function levelCount(id) {
+  return id === "sequence" ? SEQ_LEVELS.length
+       : id === "ifelse"   ? IF_LEVELS.length
+       : PAT_LEVELS.length;
+}
 
-  document.getElementById("total-score").textContent     = total;
-  document.getElementById("completed-count").textContent = done + "/3";
-  toggleHidden("all-done-msg", done < 3);
+function chipClass(badge) {
+  if (badge === "Mudah")  return "easy";
+  if (badge === "Sedang") return "medium";
+  return "hard";
+}
+
+function animateContent() {
+  var el = $("game-content");
+  el.classList.remove("q-enter");
+  void el.offsetWidth; /* reflow */
+  el.classList.add("q-enter");
+}
+
+function setHeaderScore(pts) {
+  $("header-score").textContent = pts + " pts";
+}
+
+function setHeaderProgress(cur, tot) {
+  var pct = Math.round((cur / tot) * 100);
+  $("hprog-fill").style.width  = pct + "%";
+  $("hprog-text").textContent  = cur + " / " + tot;
+}
+
+// ── Home UI refresh ───────────────────────────────────
+function refreshHome() {
+  var total = 0;
+  var done  = 0;
+  ["sequence","ifelse","pattern"].forEach(function(id) {
+    total += GS.scores[id];
+    if (GS.completed[id]) done++;
+  });
+
+  $("total-score").textContent     = total;
+  $("completed-count").textContent = done + "/3";
+  $("all-done-msg").classList.toggle("hidden", done < 3);
 
   ["sequence","ifelse","pattern"].forEach(function(id) {
-    var meta   = GAME_META[id];
-    var isDone = gameState.completed[id];
-    var jumlah = id === "sequence" ? SEQ_LEVELS.length : id === "ifelse" ? IF_LEVELS.length : PAT_LEVELS.length;
-    var card   = document.getElementById("card-" + id);
-
-    card.style.borderColor = isDone ? meta.color : "";
-    card.style.boxShadow   = isDone ? "0 6px 22px " + meta.color + "33" : "";
-    toggleHidden("done-" + id, !isDone);
-    document.getElementById("done-" + id).style.background = meta.color;
-    document.getElementById("prog-" + id).style.width      = isDone ? "100%" : "0%";
-    document.getElementById("meta-" + id).innerHTML        =
-      jumlah + " soal &nbsp;•&nbsp; " + (isDone ? "🏆 Skor: " + gameState.scores[id] : "Belum dimainkan");
-    document.getElementById("btn-" + id).textContent       = isDone ? "🔁 Ulang" : "▶ Mulai";
+    var isDone = GS.completed[id];
+    var card   = $("card-" + id);
+    card.classList.toggle("done", isDone);
+    $("prog-" + id).style.width  = isDone ? "100%" : "0%";
+    $("meta-" + id).textContent  = levelCount(id) + " soal";
+    $("cscore-" + id).textContent = isDone ? "Skor: " + GS.scores[id] : "";
+    $("btn-" + id).textContent   = isDone ? "Ulang" : "Mulai";
   });
 }
 
-function toggleHidden(id, hide) {
-  var el = document.getElementById(id);
-  if (hide) el.classList.add("hidden"); else el.classList.remove("hidden");
+function goHome() {
+  refreshHome();
+  showScreen("screen-home");
 }
 
-// ─────────────────────────────────────────────
-//  START GAME
-// ─────────────────────────────────────────────
+// ── Start game ────────────────────────────────────────
 function startGame(id) {
-  gameState.active = id;
-  var meta = GAME_META[id];
-  document.getElementById("game-header").style.borderBottomColor = meta.color;
-  document.getElementById("header-icon").textContent  = meta.icon;
-  document.getElementById("header-title").textContent = meta.title;
-  document.getElementById("header-score").textContent = "🏆 Skor: 0";
-  showScreen("game");
+  GS.active = id;
+  $("game-title-label").textContent = META[id].title;
+  $("header-score").style.background = META[id].color;
+  $("hprog-fill").style.background   = META[id].color;
+  setHeaderScore(0);
+  setHeaderProgress(0, levelCount(id));
+  showScreen("screen-game");
+
   if (id === "sequence") initSequence();
   if (id === "ifelse")   initIfElse();
   if (id === "pattern")  initPattern();
 }
 
-// ─────────────────────────────────────────────
-//  SHOW RESULT
-// ─────────────────────────────────────────────
+// ── Show result ───────────────────────────────────────
 function showResult(gameId, score) {
-  gameState.scores[gameId]    = score;
-  gameState.completed[gameId] = true;
-  var meta  = GAME_META[gameId];
-  var total = Object.values(gameState.scores).reduce(function(a,b){return a+b;},0);
-  var done  = Object.values(gameState.completed).filter(Boolean).length;
+  GS.scores[gameId]    = score;
+  GS.completed[gameId] = true;
 
-  document.getElementById("result-title").textContent     = "Selesai, " + AVATAR + "!";
-  document.getElementById("result-game-name").textContent = meta.icon + " " + meta.title;
-  document.getElementById("result-game-name").style.color = meta.color;
+  var maxPts = levelCount(gameId) * 20;
+  var pct    = Math.round((score / maxPts) * 100);
+  var total  = 0;
+  var done   = 0;
+  ["sequence","ifelse","pattern"].forEach(function(id) {
+    total += GS.scores[id];
+    if (GS.completed[id]) done++;
+  });
 
-  var box = document.getElementById("result-score-box");
-  box.style.background = meta.color + "22";
-  box.style.border     = "3px solid " + meta.color;
-  document.getElementById("result-score-num").textContent = score;
-  document.getElementById("result-score-num").style.color = meta.color;
+  $("result-game-name").textContent = META[gameId].title;
+  $("result-score-num").textContent = score;
+  $("result-score-num").style.color = META[gameId].color;
+  $("btn-play-again").style.background = META[gameId].color;
 
-  var btnAgain = document.getElementById("btn-play-again");
-  btnAgain.style.background = meta.color;
-  btnAgain.style.boxShadow  = "0 4px 0 " + meta.shadow;
+  // progress bar
+  setTimeout(function() {
+    $("result-bar-fill").style.width = pct + "%";
+    $("result-bar-fill").style.background = META[gameId].color;
+    $("result-bar-label").textContent = pct + "% akurasi dari skor maksimum " + maxPts;
+  }, 100);
 
-  var allDoneEl = document.getElementById("result-all-done");
+  var allEl = $("result-all-done");
   if (done >= 3) {
-    allDoneEl.classList.remove("hidden");
-    allDoneEl.innerHTML = "🌟 Wow! Kamu sudah main semua game!<br>Total poin: <strong>" + total + "</strong>";
-  } else { allDoneEl.classList.add("hidden"); }
-
-  showScreen("result");
-}
-
-function playAgain() { startGame(gameState.active); }
-
-// ─────────────────────────────────────────────
-//  HELPERS
-// ─────────────────────────────────────────────
-function shuffle(arr) {
-  var a = arr.slice();
-  for (var i = a.length-1; i > 0; i--) {
-    var j = Math.floor(Math.random()*(i+1));
-    var t = a[i]; a[i] = a[j]; a[j] = t;
+    allEl.classList.remove("hidden");
+    $("result-total").textContent = total;
+  } else {
+    allEl.classList.add("hidden");
   }
-  return a;
+
+  showScreen("screen-result");
 }
-function setHTML(id, html) { document.getElementById(id).innerHTML = html; }
-function updateHeaderScore(s) { document.getElementById("header-score").textContent = "🏆 Skor: " + s; }
+
+function playAgain() { startGame(GS.active); }
 
 
-/* ═══════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    GAME 1 — URUTAN PERINTAH  (10 soal)
-═══════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 var SEQ_LEVELS = [
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    story:"Robot mau nyalakan lampu 💡 Urutkan perintahnya yang benar!",
-    steps:["💡 Lampu menyala","🔌 Colokkan kabel","🔘 Tekan tombol ON","🛒 Beli lampu dulu","🔧 Pasang lampu ke fitting"],
-    correct:[3,4,1,2,0],
-  },
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    story:"Robot mau kirim pesan di HP! 📱 Urutkan algoritmanya!",
-    steps:["📤 Klik tombol kirim","📱 Buka aplikasi chat","👤 Pilih nama teman","⌨️ Ketik pesannya","🔓 Buka kunci HP dulu"],
-    correct:[4,1,2,3,0],
-  },
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    story:"Robot mau cari informasi di Google 🔍 Urutkan langkahnya!",
-    steps:["✅ Baca hasilnya","🌐 Buka browser","⌨️ Ketik kata yang dicari","🔎 Klik tombol Search","📶 Pastikan ada internet"],
-    correct:[4,1,2,3,0],
-  },
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    story:"Robot mau cetak dokumen 🖨️ Urutkan perintahnya!",
-    steps:["🖨️ Ambil hasil cetakan","📄 Buka file dokumen","🔌 Nyalakan printer","🖱️ Klik Print","⚙️ Pilih ukuran kertas"],
-    correct:[2,1,4,3,0],
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    story:"Robot mau login ke website 🖥️ Urutkan algoritmanya!",
-    steps:["🏠 Masuk ke halaman utama","🔑 Ketik password","👤 Ketik username","🖱️ Klik tombol Login","🌐 Buka website dulu"],
-    correct:[4,2,1,3,0],
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    story:"Robot mau simpan file di komputer 💾 Urutkan caranya!",
-    steps:["💾 Klik Save","📝 Tulis isi filenya","📁 Pilih folder tujuan","📄 Buka aplikasi teks","✏️ Beri nama file"],
-    correct:[3,1,2,4,0],
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    story:"Robot mau instal aplikasi di HP 📲 Urutkan algoritmanya!",
-    steps:["📲 Buka aplikasinya","✅ Klik Instal","🔍 Cari nama aplikasi","⏳ Tunggu sampai selesai","🏪 Buka Play Store"],
-    correct:[4,2,1,3,0],
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    story:"Programmer mau jalankan program pertamanya! 💻 Urutkan langkahnya!",
-    steps:["▶️ Klik Run / Jalankan","💻 Buka aplikasi coding","🐛 Periksa kalau ada error","✍️ Tulis kode programnya","📁 Buat file baru"],
-    correct:[1,4,3,0,2],
-  },
-  {
-    badge:"🔥 Susah", badgeColor:"#FF6B35",
-    story:"Robot mau debug (perbaiki) program yang error! 🐛 Urutkan langkahnya!",
-    steps:["✅ Jalankan ulang program","🔍 Cari baris yang error","📖 Baca pesan errornya","🔧 Perbaiki kodenya","▶️ Jalankan program pertama kali"],
-    correct:[4,2,1,3,0],
-  },
-  {
-    badge:"🔥 Susah", badgeColor:"#FF6B35",
-    story:"Tim robot mau bikin aplikasi baru! 🚀 Urutkan tahapan pembuatannya!",
-    steps:["🚀 Rilis ke pengguna","🎨 Desain tampilan","📋 Rencanakan fitur","💻 Tulis kode program","🧪 Testing / Uji coba"],
-    correct:[2,1,3,4,0],
-  },
+  { badge:"Mudah",
+    story:"Robot mau nyalakan lampu. Urutkan perintahnya yang benar.",
+    steps:["Lampu menyala","Colokkan kabel ke listrik","Tekan tombol ON","Beli lampunya dulu","Pasang lampu ke fitting"],
+    correct:[3,4,1,2,0] },
+  { badge:"Mudah",
+    story:"Robot mau mengirim pesan lewat HP. Urutkan algoritmanya.",
+    steps:["Klik tombol Kirim","Buka aplikasi chat","Pilih nama teman","Ketik isi pesan","Buka kunci HP dulu"],
+    correct:[4,1,2,3,0] },
+  { badge:"Mudah",
+    story:"Robot mau mencari informasi di Google. Urutkan langkahnya.",
+    steps:["Baca hasil pencarian","Buka browser","Ketik kata yang dicari","Klik tombol Search","Pastikan ada koneksi internet"],
+    correct:[4,1,2,3,0] },
+  { badge:"Mudah",
+    story:"Robot mau mencetak dokumen. Urutkan perintahnya.",
+    steps:["Ambil hasil cetakan","Buka file dokumen","Nyalakan printer","Klik Print","Pilih ukuran kertas"],
+    correct:[2,1,4,3,0] },
+  { badge:"Sedang",
+    story:"Robot mau login ke sebuah website. Urutkan algoritmanya.",
+    steps:["Masuk ke halaman utama","Ketik password","Ketik username","Klik tombol Login","Buka website-nya dulu"],
+    correct:[4,2,1,3,0] },
+  { badge:"Sedang",
+    story:"Robot mau menyimpan file di komputer. Urutkan caranya.",
+    steps:["Klik Save","Tulis isi file","Pilih folder tujuan","Buka aplikasi teks","Beri nama file"],
+    correct:[3,1,2,4,0] },
+  { badge:"Sedang",
+    story:"Robot mau menginstal aplikasi di HP. Urutkan algoritmanya.",
+    steps:["Buka aplikasinya","Klik Instal","Cari nama aplikasi","Tunggu proses selesai","Buka Play Store"],
+    correct:[4,2,1,3,0] },
+  { badge:"Sedang",
+    story:"Programmer mau menjalankan program pertamanya. Urutkan langkahnya.",
+    steps:["Klik Run / Jalankan","Buka aplikasi coding","Periksa jika ada error","Tulis kode programnya","Buat file baru"],
+    correct:[1,4,3,0,2] },
+  { badge:"Susah",
+    story:"Robot mau memperbaiki program yang error (debugging). Urutkan langkahnya.",
+    steps:["Jalankan ulang program","Cari baris yang error","Baca pesan errornya","Perbaiki kodenya","Jalankan program pertama kali"],
+    correct:[4,2,1,3,0] },
+  { badge:"Susah",
+    story:"Tim robot mau membuat aplikasi baru dari awal. Urutkan tahapannya.",
+    steps:["Rilis ke pengguna","Desain tampilan UI","Rencanakan fitur","Tulis kode program","Testing / Uji coba"],
+    correct:[2,1,3,4,0] },
 ];
 
-var seqLevel=0, seqOrder=[], seqScore=0, seqTries=0;
+var seqLevel = 0, seqOrder = [], seqScore = 0, seqTries = 0;
 
-function initSequence() { seqLevel=0; seqScore=0; renderSeqLevel(); }
+function initSequence() { seqLevel = 0; seqScore = 0; renderSeq(); }
 
-function renderSeqLevel() {
+function renderSeq() {
   var lv = SEQ_LEVELS[seqLevel];
-  seqOrder = shuffle([0,1,2,3,4].slice(0,lv.steps.length));
+  seqOrder = shuffle([0,1,2,3,4].slice(0, lv.steps.length));
   seqTries = 0;
-  var html =
-    '<span class="level-badge" style="background:'+lv.badgeColor+'33;border:1.5px solid '+lv.badgeColor+';color:'+lv.badgeColor+'">'+lv.badge+'</span>'+
-    '<div class="story-box story-yellow">'+lv.story+'</div>'+
-    '<div class="guide-text">👆 Klik tombol ▲ ▼ untuk geser urutannya!</div>'+
-    '<div class="step-list" id="seq-list"></div>'+
-    '<div class="check-row"><div id="seq-feedback" class="feedback"></div>'+
-    '<button class="btn-check" onclick="checkSeq()">✅ Cek Jawaban</button></div>'+
-    '<div class="score-info" id="seq-info">Soal '+(seqLevel+1)+' dari '+SEQ_LEVELS.length+' &nbsp;•&nbsp; 🏆 Skor: <strong>'+seqScore+'</strong></div>';
-  setHTML("game-content", html);
+  setHeaderScore(seqScore);
+  setHeaderProgress(seqLevel, SEQ_LEVELS.length);
+  animateContent();
+
+  setH("game-content",
+    '<div class="q-chip ' + chipClass(lv.badge) + '">' + lv.badge + '</div>' +
+    '<div class="q-scene">' + lv.story + '</div>' +
+    '<p class="guide-note">Gunakan tombol ↑ ↓ untuk mengubah urutan.</p>' +
+    '<div class="seq-list" id="seq-list"></div>' +
+    '<div class="check-row">' +
+      '<div class="q-fb" id="seq-fb"></div>' +
+      '<button class="btn-check" onclick="checkSeq()">Cek Jawaban</button>' +
+    '</div>' +
+    '<div class="q-info" id="seq-info">Soal ' + (seqLevel+1) + ' dari ' + SEQ_LEVELS.length + '  ·  Poin: <strong>' + seqScore + '</strong></div>'
+  );
   renderSeqList();
-  updateHeaderScore(seqScore);
 }
 
 function renderSeqList() {
   var lv = SEQ_LEVELS[seqLevel], rows = "";
-  for (var pos=0; pos<seqOrder.length; pos++) {
-    var si = seqOrder[pos];
-    rows += '<div class="step-item" id="step-'+pos+'">'+
-      '<span class="step-num">'+(pos+1)+'</span>'+
-      '<span class="step-text">'+lv.steps[si]+'</span>'+
-      '<div class="step-btns">'+
-        '<button class="btn-move" onclick="seqMove('+pos+',-1)" '+(pos===0?"disabled":"")+'>▲</button>'+
-        '<button class="btn-move" onclick="seqMove('+pos+',1)"  '+(pos===seqOrder.length-1?"disabled":"")+'>▼</button>'+
-      '</div></div>';
+  for (var p = 0; p < seqOrder.length; p++) {
+    var si = seqOrder[p];
+    rows +=
+      '<div class="seq-item" id="si' + p + '">' +
+        '<span class="seq-num">' + (p+1) + '</span>' +
+        '<span class="seq-text">' + lv.steps[si] + '</span>' +
+        '<div class="seq-controls">' +
+          '<button class="btn-mv" onclick="seqMv(' + p + ',-1)" ' + (p===0 ? "disabled" : "") + '>↑</button>' +
+          '<button class="btn-mv" onclick="seqMv(' + p + ',1)"  ' + (p===seqOrder.length-1 ? "disabled" : "") + '>↓</button>' +
+        '</div>' +
+      '</div>';
   }
-  setHTML("seq-list", rows);
+  setH("seq-list", rows);
 }
 
-function seqMove(pos, dir) {
-  var t = pos+dir;
-  if (t<0||t>=seqOrder.length) return;
-  var tmp=seqOrder[pos]; seqOrder[pos]=seqOrder[t]; seqOrder[t]=tmp;
-  var fb=document.getElementById("seq-feedback"); fb.textContent=""; fb.className="feedback";
-  document.querySelectorAll(".step-item").forEach(function(el){el.classList.remove("correct","wrong");});
+function seqMv(pos, dir) {
+  var t = pos + dir;
+  if (t < 0 || t >= seqOrder.length) return;
+  var tmp = seqOrder[pos]; seqOrder[pos] = seqOrder[t]; seqOrder[t] = tmp;
+  var fb = $("seq-fb"); fb.textContent = ""; fb.className = "q-fb";
+  document.querySelectorAll(".seq-item").forEach(function(el) {
+    el.classList.remove("correct", "wrong");
+  });
   renderSeqList();
 }
 
 function checkSeq() {
-  var lv=SEQ_LEVELS[seqLevel];
-  var ok=seqOrder.every(function(v,i){return v===lv.correct[i];});
+  var lv = SEQ_LEVELS[seqLevel];
+  var ok = seqOrder.every(function(v,i) { return v === lv.correct[i]; });
   seqTries++;
-  var items=document.querySelectorAll(".step-item");
-  items.forEach(function(el){el.classList.remove("correct","wrong");el.classList.add(ok?"correct":"wrong");});
-  var fb=document.getElementById("seq-feedback");
+  var items = document.querySelectorAll(".seq-item");
+  items.forEach(function(el) {
+    el.classList.remove("correct","wrong");
+    el.classList.add(ok ? "correct" : "wrong");
+  });
+  var fb = $("seq-fb");
   if (ok) {
-    var pts=seqTries===1?20:seqTries===2?15:10;
-    seqScore+=pts;
-    fb.textContent="🎉 Yeay, benar! Keren banget! +"+pts+" poin";
-    fb.className="feedback feedback-correct";
-    updateHeaderScore(seqScore);
-    document.getElementById("seq-info").innerHTML="Soal "+(seqLevel+1)+" dari "+SEQ_LEVELS.length+" &nbsp;•&nbsp; 🏆 Skor: <strong>"+seqScore+"</strong>";
-    if (seqLevel>=SEQ_LEVELS.length-1) { setTimeout(function(){showResult("sequence",seqScore);},1400); }
-    else { setTimeout(function(){seqLevel++;renderSeqLevel();},1400); }
+    var pts = seqTries === 1 ? 20 : seqTries === 2 ? 15 : 10;
+    seqScore += pts;
+    fb.textContent = "Benar!  +" + pts + " poin"; fb.className = "q-fb ok";
+    setHeaderScore(seqScore);
+    $("seq-info").innerHTML = "Soal " + (seqLevel+1) + " dari " + SEQ_LEVELS.length + "  ·  Poin: <strong>" + seqScore + "</strong>";
+    if (seqLevel >= SEQ_LEVELS.length - 1) {
+      setTimeout(function() { showResult("sequence", seqScore); }, 1100);
+    } else {
+      setTimeout(function() { seqLevel++; renderSeq(); }, 1100);
+    }
   } else {
-    fb.textContent="😅 Belum tepat, coba lagi ya!"; fb.className="feedback feedback-wrong";
-    setTimeout(function(){ items.forEach(function(el){el.classList.remove("wrong");}); fb.textContent=""; fb.className="feedback"; },1000);
+    fb.textContent = "Urutan belum tepat, coba lagi."; fb.className = "q-fb err";
+    setTimeout(function() {
+      items.forEach(function(el) { el.classList.remove("wrong"); });
+      fb.textContent = ""; fb.className = "q-fb";
+    }, 900);
   }
 }
 
 
-/* ═══════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    GAME 2 — PERCABANGAN  (10 soal)
-═══════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 var IF_LEVELS = [
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    situation:"Hari ini hujan 🌧️ dan Dino punya payung ☂️",
+  { badge:"Mudah",
+    situation:"Hari ini hujan dan Dino punya payung.",
     rules:[
-      {cls:"code-if",  text:"KALAU hujan 🌧️ DAN punya payung ☂️"},
-      {cls:"code-then",text:"    ➡️  Dino berangkat sekolah 🏫"},
-      {cls:"code-else",text:"KALAU TIDAK..."},
-      {cls:"code-then",text:"    ➡️  Dino tunggu di rumah 🏠"},
+      {c:"ci",t:"if hujan and punya_payung:"},
+      {c:"ct",t:"    berangkat_sekolah()"},
+      {c:"ce",t:"else:"},
+      {c:"ct",t:"    tunggu_di_rumah()"},
     ],
-    question:"🤔 Apa yang dilakukan Dino?",
-    options:["🏫 Dino berangkat sekolah","🏠 Dino tunggu di rumah","😴 Dino tidur saja","🛒 Dino pergi belanja"],
-    correct:0, hint:"💡 Hujan = YA ✅, Punya payung = YA ✅ → Kedua syarat terpenuhi!",
-  },
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    situation:"Nilai ulangan Sari adalah 60 😟. Nilai lulus = 70.",
+    question:"Fungsi apa yang dipanggil?",
+    options:["berangkat_sekolah()","tunggu_di_rumah()","tidur()","pergi_belanja()"],
+    correct:0, hint:"<b>hujan = True</b>, <b>punya_payung = True</b>  →  kondisi AND terpenuhi." },
+
+  { badge:"Mudah",
+    situation:"Nilai ulangan Sari adalah 60. Nilai lulus = 70.",
     rules:[
-      {cls:"code-if",  text:"KALAU nilai >= 70"},
-      {cls:"code-then",text:"    ➡️  Sari dapat bintang ⭐"},
-      {cls:"code-else",text:"KALAU TIDAK..."},
-      {cls:"code-then",text:"    ➡️  Sari harus belajar lagi 📚"},
+      {c:"ci",t:"if nilai >= 70:"},
+      {c:"ct",t:"    print('LULUS')"},
+      {c:"ce",t:"else:"},
+      {c:"ct",t:"    print('BELAJAR LAGI')"},
     ],
-    question:"🤔 Apa yang terjadi pada Sari?",
-    options:["⭐ Sari dapat bintang","📚 Sari belajar lagi","🎉 Sari dapat hadiah","😴 Sari istirahat"],
-    correct:1, hint:"💡 60 >= 70? Tidak! ❌ Jadi masuk ke bagian 'KALAU TIDAK'",
-  },
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    situation:"Baterai robot tinggal 5% 🔋. Charger tersedia ✅",
+    question:"Apa yang dicetak?",
+    options:["'LULUS'","'BELAJAR LAGI'","Tidak ada output","Error"],
+    correct:1, hint:"<b>60 >= 70</b>  →  False  →  masuk blok else." },
+
+  { badge:"Mudah",
+    situation:"Baterai robot = 5%. Charger tersedia.",
     rules:[
-      {cls:"code-if",  text:"KALAU baterai < 20%"},
-      {cls:"code-then",text:"    ➡️  Robot segera charge 🔌"},
-      {cls:"code-else",text:"KALAU TIDAK..."},
-      {cls:"code-then",text:"    ➡️  Robot terus bekerja 💪"},
+      {c:"ci",t:"if baterai < 20:"},
+      {c:"ct",t:"    mulai_charge()"},
+      {c:"ce",t:"else:"},
+      {c:"ct",t:"    lanjut_kerja()"},
     ],
-    question:"🤔 Apa yang dilakukan robot?",
-    options:["🔌 Robot segera charge","💪 Robot terus bekerja","😴 Robot istirahat","🔁 Robot restart"],
-    correct:0, hint:"💡 5% < 20%? YA! ✅ Jadi robot charge!",
-  },
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    situation:"Angka = 8. Robot ingin tahu: genap atau ganjil?",
+    question:"Fungsi apa yang dipanggil?",
+    options:["mulai_charge()","lanjut_kerja()","shutdown()","restart()"],
+    correct:0, hint:"<b>5 < 20</b>  →  True  →  masuk blok if." },
+
+  { badge:"Mudah",
+    situation:"Angka = 8. Robot mengecek: genap atau ganjil?",
     rules:[
-      {cls:"code-if",  text:"KALAU angka mod 2 == 0"},
-      {cls:"code-then",text:"    ➡️  Cetak 'GENAP' 🟢"},
-      {cls:"code-else",text:"KALAU TIDAK..."},
-      {cls:"code-then",text:"    ➡️  Cetak 'GANJIL' 🔴"},
+      {c:"ci",t:"if angka % 2 == 0:"},
+      {c:"ct",t:"    print('GENAP')"},
+      {c:"ce",t:"else:"},
+      {c:"ct",t:"    print('GANJIL')"},
     ],
-    question:"🤔 Apa yang dicetak robot?",
-    options:["🟢 GENAP","🔴 GANJIL","🤔 TIDAK TAHU","⚠️ ERROR"],
-    correct:0, hint:"💡 8 dibagi 2 sisa 0 → 8 adalah bilangan GENAP!",
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    situation:"Budi lapar 😋 tapi tidak ada makanan di rumah 🍽️❌",
+    question:"Apa yang dicetak?",
+    options:["'GENAP'","'GANJIL'","'TIDAK TAHU'","Error"],
+    correct:0, hint:"<b>8 % 2 = 0</b>  →  True  →  GENAP." },
+
+  { badge:"Sedang",
+    situation:"lapar = True,  ada_makanan = False.",
     rules:[
-      {cls:"code-if",  text:"KALAU lapar 😋 DAN ada makanan 🍽️"},
-      {cls:"code-then",text:"    ➡️  Budi makan di rumah 🏠"},
-      {cls:"code-else",text:"KALAU TIDAK..."},
-      {cls:"code-then",text:"    ➡️  Budi beli makanan di warung 🛒"},
+      {c:"ci",t:"if lapar and ada_makanan:"},
+      {c:"ct",t:"    makan_di_rumah()"},
+      {c:"ce",t:"else:"},
+      {c:"ct",t:"    beli_di_warung()"},
     ],
-    question:"🤔 Apa yang dilakukan Budi?",
-    options:["🏠 Makan di rumah","🛒 Beli di warung","😴 Tidur saja","📞 Telepon teman"],
-    correct:1, hint:"💡 Lapar = YA ✅, Ada makanan = TIDAK ❌ → DAN gagal!",
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    situation:"Riko punya uang 💰 dan hari ini hari Sabtu 🎉",
+    question:"Fungsi apa yang dipanggil?",
+    options:["makan_di_rumah()","beli_di_warung()","tidur()","telepon_teman()"],
+    correct:1, hint:"AND butuh keduanya True.  <b>True and False = False</b>  →  masuk else." },
+
+  { badge:"Sedang",
+    situation:"ada_uang = True,  hari_sabtu = True.",
     rules:[
-      {cls:"code-if",  text:"KALAU ada uang 💰 ATAU hari Sabtu 🎉"},
-      {cls:"code-then",text:"    ➡️  Riko bisa beli es krim 🍦"},
-      {cls:"code-else",text:"KALAU TIDAK..."},
-      {cls:"code-then",text:"    ➡️  Riko tidak beli es krim 😢"},
+      {c:"ci",t:"if ada_uang or hari_sabtu:"},
+      {c:"ct",t:"    beli_es_krim()"},
+      {c:"ce",t:"else:"},
+      {c:"ct",t:"    pulang_saja()"},
     ],
-    question:"🤔 Apakah Riko bisa beli es krim?",
-    options:["🍦 Ya, bisa beli","😢 Tidak bisa beli","🤔 Tidak tahu","⏳ Nunggu besok"],
-    correct:0, hint:"💡 ATAU → cukup satu benar. Ada uang = YA ✅ → sudah cukup!",
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    situation:"Password diketik: 'abc123'. Password benar: 'abc123'.",
+    question:"Fungsi apa yang dipanggil?",
+    options:["beli_es_krim()","pulang_saja()","menabung()","nunggu_besok()"],
+    correct:0, hint:"OR cukup satu True.  <b>True or True = True</b>  →  masuk if." },
+
+  { badge:"Sedang",
+    situation:"input_password = 'abc123',  password_benar = 'abc123'.",
     rules:[
-      {cls:"code-if",  text:"KALAU password == password_benar"},
-      {cls:"code-then",text:"    ➡️  Akses diberikan ✅"},
-      {cls:"code-else",text:"KALAU TIDAK..."},
-      {cls:"code-then",text:"    ➡️  Akses ditolak ❌"},
+      {c:"ci",t:"if input_password == password_benar:"},
+      {c:"ct",t:"    akses_diberikan()"},
+      {c:"ce",t:"else:"},
+      {c:"ct",t:"    akses_ditolak()"},
     ],
-    question:"🤔 Apa yang terjadi?",
-    options:["✅ Akses diberikan","❌ Akses ditolak","🔄 Coba lagi","⚠️ Sistem error"],
-    correct:0, hint:"💡 'abc123' == 'abc123'? YA! ✅ Password sama → akses diberikan!",
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    situation:"Nilai a = 10, nilai b = 20.",
+    question:"Fungsi apa yang dipanggil?",
+    options:["akses_diberikan()","akses_ditolak()","coba_lagi()","error()"],
+    correct:0, hint:"<b>'abc123' == 'abc123'</b>  →  True  →  akses_diberikan()." },
+
+  { badge:"Sedang",
+    situation:"a = 10,  b = 20.",
     rules:[
-      {cls:"code-if",  text:"KALAU a > b"},
-      {cls:"code-then",text:"    ➡️  Cetak 'a lebih besar'"},
-      {cls:"code-else",text:"KALAU TIDAK..."},
-      {cls:"code-then",text:"    ➡️  Cetak 'b lebih besar'"},
+      {c:"ci",t:"if a > b:"},
+      {c:"ct",t:"    print('a lebih besar')"},
+      {c:"ce",t:"else:"},
+      {c:"ct",t:"    print('b lebih besar')"},
     ],
-    question:"🤔 Apa yang dicetak robot?",
+    question:"Apa yang dicetak?",
     options:["'a lebih besar'","'b lebih besar'","'sama besar'","Tidak ada output"],
-    correct:1, hint:"💡 10 > 20? Tidak! ❌ → masuk 'KALAU TIDAK' → b lebih besar!",
-  },
-  {
-    badge:"🔥 Susah", badgeColor:"#FF6B35",
-    situation:"Suhu 35°C 🥵, kipas rusak 💨❌, AC tersedia ❄️",
+    correct:1, hint:"<b>10 > 20</b>  →  False  →  masuk else." },
+
+  { badge:"Susah",
+    situation:"suhu = 35,  kipas_rusak = True,  AC tersedia.",
     rules:[
-      {cls:"code-if",   text:"KALAU suhu > 30°C DAN kipas rusak"},
-      {cls:"code-then", text:"    ➡️  Nyalakan AC ❄️"},
-      {cls:"code-else2",text:"TAPI KALAU suhu > 30°C saja"},
-      {cls:"code-then", text:"    ➡️  Nyalakan kipas 💨"},
-      {cls:"code-else", text:"KALAU TIDAK..."},
-      {cls:"code-then", text:"    ➡️  Tidak perlu apa-apa 😊"},
+      {c:"ci", t:"if suhu > 30 and kipas_rusak:"},
+      {c:"ct", t:"    nyalakan_AC()"},
+      {c:"ce2",t:"elif suhu > 30:"},
+      {c:"ct", t:"    nyalakan_kipas()"},
+      {c:"ce", t:"else:"},
+      {c:"ct", t:"    tidak_perlu_apa()"},
     ],
-    question:"🤔 Apa yang harus dilakukan?",
-    options:["❄️ Nyalakan AC","💨 Nyalakan kipas","😊 Tidak perlu apa-apa","🪟 Buka jendela"],
-    correct:0, hint:"💡 35°C > 30°C = YA ✅ DAN kipas rusak = YA ✅ → kondisi pertama!",
-  },
-  {
-    badge:"🔥 Susah", badgeColor:"#FF6B35",
-    situation:"Nilai siswa = 85. Cek grade-nya!",
+    question:"Fungsi apa yang dipanggil?",
+    options:["nyalakan_AC()","nyalakan_kipas()","tidak_perlu_apa()","Error"],
+    correct:0, hint:"<b>35 > 30 = True AND kipas_rusak = True</b>  →  kondisi if pertama terpenuhi." },
+
+  { badge:"Susah",
+    situation:"nilai = 85.",
     rules:[
-      {cls:"code-if",   text:"KALAU nilai >= 90"},
-      {cls:"code-then", text:"    ➡️  Grade A 🌟"},
-      {cls:"code-else2",text:"TAPI KALAU nilai >= 75"},
-      {cls:"code-then", text:"    ➡️  Grade B 👍"},
-      {cls:"code-else", text:"KALAU TIDAK..."},
-      {cls:"code-then", text:"    ➡️  Grade C 📚"},
+      {c:"ci", t:"if nilai >= 90:"},
+      {c:"ct", t:"    grade = 'A'"},
+      {c:"ce2",t:"elif nilai >= 75:"},
+      {c:"ct", t:"    grade = 'B'"},
+      {c:"ce", t:"else:"},
+      {c:"ct", t:"    grade = 'C'"},
     ],
-    question:"🤔 Grade apa yang didapat siswa?",
-    options:["🌟 Grade A","👍 Grade B","📚 Grade C","❌ Tidak lulus"],
-    correct:1, hint:"💡 85 >= 90? Tidak ❌. 85 >= 75? YA ✅ → Grade B!",
-  },
+    question:"Nilai grade yang disimpan adalah?",
+    options:["Grade A","Grade B","Grade C","Tidak ada grade"],
+    correct:1, hint:"<b>85 >= 90</b> → False.  <b>85 >= 75</b> → True  →  grade = 'B'." },
 ];
 
-var ifLevel=0, ifScore=0;
+var ifLevel = 0, ifScore = 0;
 
-function initIfElse() { ifLevel=0; ifScore=0; renderIfLevel(); }
+function initIfElse() { ifLevel = 0; ifScore = 0; renderIf(); }
 
-function renderIfLevel() {
-  var lv=IF_LEVELS[ifLevel];
-  var codeLines="";
-  lv.rules.forEach(function(r){ codeLines+='<span class="code-line '+r.cls+'">'+r.text+'</span>'; });
-  var optBtns="";
-  lv.options.forEach(function(opt,i){ optBtns+='<button class="btn-option" id="if-opt-'+i+'" onclick="checkIf('+i+')">'+opt+'</button>'; });
-  var html=
-    '<span class="level-badge" style="background:'+lv.badgeColor+'33;border:1.5px solid '+lv.badgeColor+';color:'+lv.badgeColor+'">'+lv.badge+'</span>'+
-    '<div class="story-box story-teal">🗒️ Situasi: '+lv.situation+'</div>'+
-    '<div class="code-block">'+codeLines+'</div>'+
-    '<div class="hint-box">'+lv.hint+'</div>'+
-    '<div class="question-text">'+lv.question+'</div>'+
-    '<div class="options-grid">'+optBtns+'</div>'+
-    '<div id="if-feedback" class="feedback" style="margin-top:14px"></div>'+
-    '<div class="score-info" id="if-info">Soal '+(ifLevel+1)+' dari '+IF_LEVELS.length+' &nbsp;•&nbsp; 🏆 Skor: <strong>'+ifScore+'</strong></div>';
-  setHTML("game-content",html);
-  updateHeaderScore(ifScore);
+function renderIf() {
+  var lv = IF_LEVELS[ifLevel];
+  setHeaderScore(ifScore);
+  setHeaderProgress(ifLevel, IF_LEVELS.length);
+  animateContent();
+
+  var codeLines = "";
+  lv.rules.forEach(function(r) {
+    codeLines += '<span class="' + r.c + '">' + r.t + '</span>\n';
+  });
+
+  var opts = "";
+  lv.options.forEach(function(o, i) {
+    opts += '<button class="btn-opt" id="io' + i + '" onclick="checkIf(' + i + ')">' + o + '</button>';
+  });
+
+  setH("game-content",
+    '<div class="q-chip ' + chipClass(lv.badge) + '">' + lv.badge + '</div>' +
+    '<div class="q-scene">' + lv.situation + '</div>' +
+    '<div class="code-block"><pre>' + codeLines + '</pre></div>' +
+    '<div class="q-hint"><b>Petunjuk:</b> ' + lv.hint + '</div>' +
+    '<div class="q-label">' + lv.question + '</div>' +
+    '<div class="opts-grid">' + opts + '</div>' +
+    '<div class="q-fb" id="if-fb" style="margin-top:16px"></div>' +
+    '<div class="q-info" id="if-info">Soal ' + (ifLevel+1) + ' dari ' + IF_LEVELS.length + '  ·  Poin: <strong>' + ifScore + '</strong></div>'
+  );
 }
 
 function checkIf(idx) {
-  var lv=IF_LEVELS[ifLevel], ok=idx===lv.correct;
-  document.querySelectorAll(".btn-option").forEach(function(btn){btn.disabled=true;});
-  document.getElementById("if-opt-"+idx).classList.add(ok?"correct":"wrong");
-  if (!ok) document.getElementById("if-opt-"+lv.correct).classList.add("reveal");
-  var fb=document.getElementById("if-feedback");
+  var lv = IF_LEVELS[ifLevel], ok = idx === lv.correct;
+  document.querySelectorAll(".btn-opt").forEach(function(b) { b.disabled = true; });
+  document.getElementById("io" + idx).classList.add(ok ? "correct" : "wrong");
+  if (!ok) document.getElementById("io" + lv.correct).classList.add("reveal");
+  var fb = $("if-fb");
   if (ok) {
-    ifScore+=20;
-    fb.textContent="🎉 Betul banget! Kamu pintar! +20 poin"; fb.className="feedback feedback-correct";
-    updateHeaderScore(ifScore);
-    document.getElementById("if-info").innerHTML="Soal "+(ifLevel+1)+" dari "+IF_LEVELS.length+" &nbsp;•&nbsp; 🏆 Skor: <strong>"+ifScore+"</strong>";
-    if (ifLevel>=IF_LEVELS.length-1) { setTimeout(function(){showResult("ifelse",ifScore);},1400); }
-    else { setTimeout(function(){ifLevel++;renderIfLevel();},1400); }
+    ifScore += 20;
+    fb.textContent = "Benar!  +20 poin"; fb.className = "q-fb ok";
+    setHeaderScore(ifScore);
+    $("if-info").innerHTML = "Soal " + (ifLevel+1) + " dari " + IF_LEVELS.length + "  ·  Poin: <strong>" + ifScore + "</strong>";
+    if (ifLevel >= IF_LEVELS.length - 1) {
+      setTimeout(function() { showResult("ifelse", ifScore); }, 1100);
+    } else {
+      setTimeout(function() { ifLevel++; renderIf(); }, 1100);
+    }
   } else {
-    fb.textContent="😅 Kurang tepat! Jawaban benar sudah ditandai hijau 💚"; fb.className="feedback feedback-wrong";
-    setTimeout(function(){ifLevel++;renderIfLevel();},2200);
+    fb.textContent = "Kurang tepat — lihat jawaban yang benar di atas.";
+    fb.className = "q-fb err";
+    setTimeout(function() { ifLevel++; renderIf(); }, 2000);
   }
 }
 
 
-/* ═══════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════════
    GAME 3 — POLA & PERULANGAN  (10 soal)
-═══════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════ */
 var PAT_LEVELS = [
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    situation:"Ibu menata buah di meja makan setiap hari:",
-    pattern:["🍎","🍌","🍎","🍌","🍎","❓"],
-    question:"🤔 Buah apa yang ke-6?",
-    options:["🍎 Apel","🍌 Pisang","🍊 Jeruk","🍇 Anggur"],
-    correct:1, hint:"💡 Polanya: apel-pisang bergantian. Setelah apel ke-5 adalah...",
-  },
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    situation:"Robot disuruh cetak kata 'Halo' sebanyak 4 kali:",
+  { badge:"Mudah",
+    situation:"Ibu menata buah di meja setiap pagi:",
+    pattern:["🍎","🍌","🍎","🍌","🍎","?"],
+    question:"Buah ke-6 adalah?",
+    options:["Apel","Pisang","Jeruk","Anggur"],
+    correct:1, hint:"Pola: apel-pisang bergantian. Posisi genap = pisang." },
+
+  { badge:"Mudah",
+    situation:"Robot mencetak teks berulang:",
     codeLines:[
-      {cls:"code-loop",  text:"🔁 Ulangi 4 kali:"},
-      {cls:"code-action",text:"    📢 Cetak 'Halo'"},
+      {c:"cl",t:"for i in range(4):"},
+      {c:"ca",t:"    print('Halo')"},
     ],
-    question:"🤔 Berapa kali kata 'Halo' dicetak?",
+    question:"Berapa kali 'Halo' dicetak?",
     options:["2 kali","3 kali","4 kali","5 kali"],
-    correct:2, hint:"💡 Loop jalan 4 kali → 'Halo' dicetak 4 kali juga!",
-  },
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    situation:"Robot menghitung mundur dari 5:",
+    correct:2, hint:"<b>range(4)</b> menghasilkan [0,1,2,3]  →  loop berjalan 4 kali." },
+
+  { badge:"Mudah",
+    situation:"Robot menghitung mundur:",
     codeLines:[
-      {cls:"code-loop",  text:"🔢 i = 5"},
-      {cls:"code-loop",  text:"🔁 SELAMA i > 0:"},
-      {cls:"code-action",text:"    📢 Cetak i"},
-      {cls:"code-action",text:"    i = i - 1"},
+      {c:"cl",t:"i = 5"},
+      {c:"cl",t:"while i > 0:"},
+      {c:"ca",t:"    print(i)"},
+      {c:"ca",t:"    i = i - 1"},
     ],
-    question:"🤔 Angka apa saja yang dicetak? (urut)",
-    options:["5,4,3,2,1","1,2,3,4,5","5,4,3,2,1,0","4,3,2,1,0"],
-    correct:0, hint:"💡 Mulai i=5, tiap putaran kurang 1, berhenti saat i=0 (tidak dicetak)",
-  },
-  {
-    badge:"⭐ Mudah", badgeColor:"#06D6A0",
-    situation:"Robot menyiram tanaman setiap hari selama seminggu:",
+    question:"Angka apa saja yang dicetak?",
+    options:["5, 4, 3, 2, 1","1, 2, 3, 4, 5","5, 4, 3, 2, 1, 0","4, 3, 2, 1, 0"],
+    correct:0, hint:"Mulai i=5, kurang 1 setiap putaran.  Berhenti saat <b>i=0</b> (tidak dicetak)." },
+
+  { badge:"Mudah",
+    situation:"Robot menyiram tanaman selama 7 hari:",
     codeLines:[
-      {cls:"code-loop",  text:"🔁 Ulangi 7 kali:"},
-      {cls:"code-action",text:"    💧 Siram tanaman"},
+      {c:"cl",t:"for hari in range(7):"},
+      {c:"ca",t:"    siram_tanaman()"},
     ],
-    question:"🤔 Total berapa kali tanaman disiram?",
+    question:"Total siram_tanaman() dipanggil berapa kali?",
     options:["5 kali","6 kali","7 kali","8 kali"],
-    correct:2, hint:"💡 1 minggu = 7 hari → loop 7 kali → siram 7 kali!",
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
+    correct:2, hint:"<b>range(7)</b>  →  7 iterasi  →  fungsi dipanggil 7 kali." },
+
+  { badge:"Sedang",
     situation:"Riko menghias kelas dengan bendera warna-warni:",
-    pattern:["🟥","🟨","🟦","🟥","🟨","🟦","🟥","❓"],
-    question:"🤔 Bendera ke-8 warnanya apa?",
-    options:["🟥 Merah","🟨 Kuning","🟦 Biru","🟩 Hijau"],
-    correct:1, hint:"💡 Pola 3 warna berulang. Posisi 8 → 8 mod 3 = 2 → urutan ke-2 = kuning!",
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    situation:"Robot menghitung jumlah dari 1 sampai 5:",
+    pattern:["🟥","🟨","🟦","🟥","🟨","🟦","🟥","?"],
+    question:"Bendera ke-8 warnanya apa?",
+    options:["Merah","Kuning","Biru","Hijau"],
+    correct:1, hint:"Pola 3 warna berulang.  <b>8 % 3 = 2</b>  →  indeks ke-2 (mulai 0) = Kuning." },
+
+  { badge:"Sedang",
+    situation:"Robot menjumlahkan angka 1 sampai 5:",
     codeLines:[
-      {cls:"code-loop",  text:"🔢 total = 0, i = 1"},
-      {cls:"code-loop",  text:"🔁 SELAMA i <= 5:"},
-      {cls:"code-action",text:"    total = total + i"},
-      {cls:"code-action",text:"    i = i + 1"},
+      {c:"cl",t:"total = 0"},
+      {c:"cl",t:"for i in range(1, 6):"},
+      {c:"ca",t:"    total = total + i"},
     ],
-    question:"🤔 Berapa nilai total akhirnya?",
+    question:"Nilai total di akhir loop?",
     options:["10","15","20","25"],
-    correct:1, hint:"💡 1+2+3+4+5 = 15. Loop menjumlahkan semua angka 1 sampai 5!",
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    situation:"Robot mencetak segitiga bintang, tiap baris bertambah:",
+    correct:1, hint:"1+2+3+4+5 = 15.  <b>range(1,6)</b> menghasilkan 1,2,3,4,5." },
+
+  { badge:"Sedang",
+    situation:"Robot mencetak segitiga bintang:",
     codeLines:[
-      {cls:"code-loop",  text:"🔁 i dari 1 sampai 4:"},
-      {cls:"code-action",text:"    ⭐ Cetak bintang sebanyak i"},
+      {c:"cl",t:"for i in range(1, 5):"},
+      {c:"ca",t:"    print('*' * i)"},
     ],
-    question:"🤔 Baris ke-3 ada berapa bintang?",
-    options:["1 bintang ⭐","2 bintang ⭐⭐","3 bintang ⭐⭐⭐","4 bintang ⭐⭐⭐⭐"],
-    correct:2, hint:"💡 Baris 1=1⭐, Baris 2=2⭐, Baris 3=3⭐. i mengikuti nomor baris!",
-  },
-  {
-    badge:"🌟 Sedang", badgeColor:"#FFD166",
-    situation:"Robot mencari angka terbesar dari daftar: [3, 7, 2, 9, 5]",
+    question:"Baris ke-3 ada berapa bintang?",
+    options:["1 bintang","2 bintang","3 bintang","4 bintang"],
+    correct:2, hint:"<b>i=3</b>  →  print('*' * 3)  →  mencetak ***." },
+
+  { badge:"Sedang",
+    situation:"Robot mencari angka terbesar dari list [3, 7, 2, 9, 5]:",
     codeLines:[
-      {cls:"code-loop",  text:"🔢 maks = 0"},
-      {cls:"code-loop",  text:"🔁 Untuk setiap angka:"},
-      {cls:"code-if",    text:"    KALAU angka > maks:"},
-      {cls:"code-action",text:"        maks = angka"},
+      {c:"cl",t:"maks = 0"},
+      {c:"cl",t:"for angka in [3, 7, 2, 9, 5]:"},
+      {c:"ci",t:"    if angka > maks:"},
+      {c:"ca",t:"        maks = angka"},
     ],
-    question:"🤔 Berapa nilai maks di akhir?",
+    question:"Nilai maks di akhir loop?",
     options:["3","7","5","9"],
-    correct:3, hint:"💡 Loop memeriksa satu per satu. Angka terbesar dari [3,7,2,9,5] adalah 9!",
-  },
-  {
-    badge:"🔥 Susah", badgeColor:"#FF6B35",
-    situation:"Robot cuci piring! 2 rak, setiap rak ada 4 piring:",
+    correct:3, hint:"Loop memeriksa satu per satu dan terus memperbarui maks jika ada yang lebih besar." },
+
+  { badge:"Susah",
+    situation:"Robot mencuci piring — 2 rak, tiap rak 4 piring:",
     codeLines:[
-      {cls:"code-loop",  text:"🔁 Ulangi 2 kali (rak):"},
-      {cls:"code-loop2", text:"    🔁 Ulangi 4 kali (piring):"},
-      {cls:"code-action",text:"        🫧 Cuci 1 piring"},
+      {c:"cl", t:"for rak in range(2):"},
+      {c:"cl2",t:"    for piring in range(4):"},
+      {c:"ca", t:"        cuci_piring()"},
     ],
-    question:"🤔 Total berapa piring yang dicuci?",
-    options:["4 piring","6 piring","8 piring","10 piring"],
-    correct:2, hint:"💡 Loop bersarang: 2 × 4 = 8 piring total!",
-  },
-  {
-    badge:"🔥 Susah", badgeColor:"#FF6B35",
-    situation:"Robot mencetak tabel perkalian 3 (dari 1 sampai 5):",
+    question:"Total cuci_piring() dipanggil berapa kali?",
+    options:["4 kali","6 kali","8 kali","10 kali"],
+    correct:2, hint:"Loop bersarang (nested loop):  <b>2 × 4 = 8</b> pemanggilan fungsi." },
+
+  { badge:"Susah",
+    situation:"Robot mencetak tabel perkalian 3:",
     codeLines:[
-      {cls:"code-loop",  text:"🔁 i dari 1 sampai 5:"},
-      {cls:"code-action",text:"    📢 Cetak 3 × i"},
+      {c:"cl",t:"for i in range(1, 6):"},
+      {c:"ca",t:"    print(3 * i)"},
     ],
-    question:"🤔 Angka ke-4 yang dicetak adalah?",
+    question:"Angka ke-4 yang dicetak adalah?",
     options:["9","12","15","16"],
-    correct:1, hint:"💡 i=1→3, i=2→6, i=3→9, i=4→12. Angka ke-4 adalah 3×4 = 12!",
-  },
+    correct:1, hint:"i=1→3,  i=2→6,  i=3→9,  <b>i=4→12</b>." },
 ];
 
-var patLevel=0, patScore=0;
+var patLevel = 0, patScore = 0;
 
-function initPattern() { patLevel=0; patScore=0; renderPatLevel(); }
+function initPattern() { patLevel = 0; patScore = 0; renderPat(); }
 
-function renderPatLevel() {
-  var lv=PAT_LEVELS[patLevel], visualHTML="";
+function renderPat() {
+  var lv = PAT_LEVELS[patLevel];
+  setHeaderScore(patScore);
+  setHeaderProgress(patLevel, PAT_LEVELS.length);
+  animateContent();
+
+  var visual = "";
   if (lv.pattern) {
-    var cells="";
-    lv.pattern.forEach(function(e){ cells+='<div class="pattern-cell '+(e==="❓"?"unknown":"")+'">'+ e+'</div>'; });
-    visualHTML='<div class="pattern-display">'+cells+'</div>';
+    var cells = "";
+    lv.pattern.forEach(function(e) {
+      cells += '<div class="pat-cell ' + (e === "?" ? "unknown" : "") + '">' + e + '</div>';
+    });
+    visual = '<div class="pat-row">' + cells + '</div>';
   }
   if (lv.codeLines) {
-    var lines="";
-    lv.codeLines.forEach(function(l){ lines+='<span class="code-line '+l.cls+'">'+l.text+'</span>'; });
-    visualHTML='<div class="code-block">'+lines+'</div>';
+    var lines = "";
+    lv.codeLines.forEach(function(l) { lines += '<span class="' + l.c + '">' + l.t + '</span>\n'; });
+    visual = '<div class="code-block"><pre>' + lines + '</pre></div>';
   }
-  var optBtns="";
-  lv.options.forEach(function(opt,i){ optBtns+='<button class="btn-option" id="pat-opt-'+i+'" onclick="checkPat('+i+')">'+opt+'</button>'; });
-  var html=
-    '<span class="level-badge" style="background:'+lv.badgeColor+'33;border:1.5px solid '+lv.badgeColor+';color:'+lv.badgeColor+'">'+lv.badge+'</span>'+
-    '<div class="story-box story-purple">📖 '+lv.situation+'</div>'+
-    visualHTML+
-    '<div class="hint-box">'+lv.hint+'</div>'+
-    '<div class="question-text">'+lv.question+'</div>'+
-    '<div class="options-grid">'+optBtns+'</div>'+
-    '<div id="pat-feedback" class="feedback" style="margin-top:14px"></div>'+
-    '<div class="score-info" id="pat-info">Soal '+(patLevel+1)+' dari '+PAT_LEVELS.length+' &nbsp;•&nbsp; 🏆 Skor: <strong>'+patScore+'</strong></div>';
-  setHTML("game-content",html);
-  updateHeaderScore(patScore);
+
+  var opts = "";
+  lv.options.forEach(function(o, i) {
+    opts += '<button class="btn-opt" id="po' + i + '" onclick="checkPat(' + i + ')">' + o + '</button>';
+  });
+
+  setH("game-content",
+    '<div class="q-chip ' + chipClass(lv.badge) + '">' + lv.badge + '</div>' +
+    '<div class="q-scene">' + lv.situation + '</div>' +
+    visual +
+    '<div class="q-hint"><b>Petunjuk:</b> ' + lv.hint + '</div>' +
+    '<div class="q-label">' + lv.question + '</div>' +
+    '<div class="opts-grid">' + opts + '</div>' +
+    '<div class="q-fb" id="pat-fb" style="margin-top:16px"></div>' +
+    '<div class="q-info" id="pat-info">Soal ' + (patLevel+1) + ' dari ' + PAT_LEVELS.length + '  ·  Poin: <strong>' + patScore + '</strong></div>'
+  );
 }
 
 function checkPat(idx) {
-  var lv=PAT_LEVELS[patLevel], ok=idx===lv.correct;
-  document.querySelectorAll(".btn-option").forEach(function(btn){btn.disabled=true;});
-  document.getElementById("pat-opt-"+idx).classList.add(ok?"correct":"wrong");
-  if (!ok) document.getElementById("pat-opt-"+lv.correct).classList.add("reveal");
-  var fb=document.getElementById("pat-feedback");
+  var lv = PAT_LEVELS[patLevel], ok = idx === lv.correct;
+  document.querySelectorAll(".btn-opt").forEach(function(b) { b.disabled = true; });
+  document.getElementById("po" + idx).classList.add(ok ? "correct" : "wrong");
+  if (!ok) document.getElementById("po" + lv.correct).classList.add("reveal");
+  var fb = $("pat-fb");
   if (ok) {
-    patScore+=20;
-    fb.textContent="🎉 Wah, hebat! Jawaban benar! +20 poin"; fb.className="feedback feedback-correct";
-    updateHeaderScore(patScore);
-    document.getElementById("pat-info").innerHTML="Soal "+(patLevel+1)+" dari "+PAT_LEVELS.length+" &nbsp;•&nbsp; 🏆 Skor: <strong>"+patScore+"</strong>";
-    if (patLevel>=PAT_LEVELS.length-1) { setTimeout(function(){showResult("pattern",patScore);},1400); }
-    else { setTimeout(function(){patLevel++;renderPatLevel();},1400); }
+    patScore += 20;
+    fb.textContent = "Benar!  +20 poin"; fb.className = "q-fb ok";
+    setHeaderScore(patScore);
+    $("pat-info").innerHTML = "Soal " + (patLevel+1) + " dari " + PAT_LEVELS.length + "  ·  Poin: <strong>" + patScore + "</strong>";
+    if (patLevel >= PAT_LEVELS.length - 1) {
+      setTimeout(function() { showResult("pattern", patScore); }, 1100);
+    } else {
+      setTimeout(function() { patLevel++; renderPat(); }, 1100);
+    }
   } else {
-    fb.textContent="😅 Hampir! Jawaban benar sudah ditandai hijau 💚"; fb.className="feedback feedback-wrong";
-    setTimeout(function(){patLevel++;renderPatLevel();},2200);
+    fb.textContent = "Kurang tepat — lihat jawaban yang benar di atas.";
+    fb.className = "q-fb err";
+    setTimeout(function() { patLevel++; renderPat(); }, 2000);
   }
 }
