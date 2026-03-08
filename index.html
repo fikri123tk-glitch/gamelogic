@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CoderKid — Belajar Logika Coding</title>
+  <title>CoderKid — Belajar Coding Seru!</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
+
+  <!-- Animated background -->
+  <canvas id="bg-canvas"></canvas>
 
   <!-- ══════════════════════════
        SCREEN: HOME
@@ -18,87 +21,82 @@
 
       <div class="home-hero">
         <div class="hero-avatar" id="home-avatar"></div>
-        <h1 class="hero-title">Belajar Coding! 💻</h1>
-        <p class="hero-sub">4 game seru untuk melatih logika coding kamu</p>
+        <h1 class="hero-title">CoderKid <span class="title-dot">💻</span></h1>
+        <p class="hero-sub">Belajar logika coding lewat 4 game seru!</p>
         <div class="hero-stats">
           <div class="stat-chip">
             <span id="total-score" class="stat-num">0</span>
-            <span class="stat-lbl">Total Poin 🏆</span>
+            <span class="stat-lbl">Total Poin</span>
           </div>
+          <div class="stat-sep"></div>
           <div class="stat-chip">
             <span id="completed-count" class="stat-num">0/4</span>
-            <span class="stat-lbl">Selesai ✅</span>
+            <span class="stat-lbl">Selesai</span>
           </div>
         </div>
-        <div id="all-done-msg" class="all-done hidden">🌟 Semua game selesai! Kamu luar biasa!</div>
+        <div id="all-done-msg" class="all-done hidden">🌟 Kamu sudah selesaikan semua game!</div>
       </div>
 
       <div class="cards-wrap">
 
-        <!-- Card 1 -->
-        <div class="gcard" id="card-sequence" onclick="startGame('sequence')">
-          <div class="gcard-icon" style="background:#FF6B3522">📋</div>
-          <div class="gcard-body">
-            <div class="gcard-title-row">
-              <span class="gcard-title">Urutan Perintah</span>
-              <span class="gcard-badge hidden" id="done-sequence">✓ Selesai</span>
-            </div>
-            <p class="gcard-desc">Susun langkah-langkah dalam urutan algoritma yang benar</p>
-            <div class="gcard-meta" id="meta-sequence">10 soal · Belum dimainkan</div>
+        <div class="gcard gcard-orange" id="card-sequence" onclick="startGame('sequence')">
+          <div class="gcard-num">01</div>
+          <div class="gcard-icon">📋</div>
+          <div class="gcard-info">
+            <div class="gcard-name">Urutan Perintah</div>
+            <div class="gcard-desc">Drag & drop langkah-langkah ke urutan yang benar</div>
+            <div class="gcard-meta" id="meta-sequence">10 soal</div>
           </div>
-          <button class="gcard-btn btn-orange" id="btn-sequence">▶ Mulai</button>
-          <div class="gcard-bar bar-orange" id="prog-sequence"></div>
+          <div class="gcard-right">
+            <span class="gcard-done hidden" id="done-sequence">✓</span>
+            <button class="gcard-btn" id="btn-sequence">Mulai</button>
+          </div>
+          <div class="gcard-bar" id="prog-sequence"></div>
         </div>
 
-        <!-- Card 2 -->
-        <div class="gcard" id="card-ifelse" onclick="startGame('ifelse')">
-          <div class="gcard-icon" style="background:#4ECDC422">🔀</div>
-          <div class="gcard-body">
-            <div class="gcard-title-row">
-              <span class="gcard-title">Percabangan</span>
-              <span class="gcard-badge hidden" id="done-ifelse">✓ Selesai</span>
-            </div>
-            <p class="gcard-desc">Baca kode IF/ELSE dan pilih output yang dihasilkan</p>
-            <div class="gcard-meta" id="meta-ifelse">10 soal · Belum dimainkan</div>
+        <div class="gcard gcard-blue" id="card-robot" onclick="startGame('robot')">
+          <div class="gcard-num">02</div>
+          <div class="gcard-icon">🤖</div>
+          <div class="gcard-info">
+            <div class="gcard-name">Gerak Robot</div>
+            <div class="gcard-desc">Beri perintah arah untuk gerakkan robot ke tujuan</div>
+            <div class="gcard-meta" id="meta-robot">8 level</div>
           </div>
-          <button class="gcard-btn btn-teal" id="btn-ifelse">▶ Mulai</button>
-          <div class="gcard-bar bar-teal" id="prog-ifelse"></div>
+          <div class="gcard-right">
+            <span class="gcard-done hidden" id="done-robot">✓</span>
+            <button class="gcard-btn" id="btn-robot">Mulai</button>
+          </div>
+          <div class="gcard-bar" id="prog-robot"></div>
         </div>
 
-        <!-- Card 3 -->
-        <div class="gcard" id="card-pattern" onclick="startGame('pattern')">
-          <div class="gcard-icon" style="background:#9B5DE522">🔄</div>
-          <div class="gcard-body">
-            <div class="gcard-title-row">
-              <span class="gcard-title">Pola & Perulangan</span>
-              <span class="gcard-badge hidden" id="done-pattern">✓ Selesai</span>
-            </div>
-            <p class="gcard-desc">Temukan pola dan hitung hasil loop seperti komputer</p>
-            <div class="gcard-meta" id="meta-pattern">10 soal · Belum dimainkan</div>
+        <div class="gcard gcard-purple" id="card-pattern" onclick="startGame('pattern')">
+          <div class="gcard-num">03</div>
+          <div class="gcard-icon">🔄</div>
+          <div class="gcard-info">
+            <div class="gcard-name">Pola & Perulangan</div>
+            <div class="gcard-desc">Temukan pola dan hitung hasil loop</div>
+            <div class="gcard-meta" id="meta-pattern">10 soal</div>
           </div>
-          <button class="gcard-btn btn-purple" id="btn-pattern">▶ Mulai</button>
-          <div class="gcard-bar bar-purple" id="prog-pattern"></div>
+          <div class="gcard-right">
+            <span class="gcard-done hidden" id="done-pattern">✓</span>
+            <button class="gcard-btn" id="btn-pattern">Mulai</button>
+          </div>
+          <div class="gcard-bar" id="prog-pattern"></div>
         </div>
 
-        <!-- Card 4 NEW -->
-        <div class="gcard" id="card-typing" onclick="startGame('typing')">
-          <div class="gcard-icon" style="background:#06D6A022">⌨️</div>
-          <div class="gcard-body">
-            <div class="gcard-title-row">
-              <span class="gcard-title">Ketik Kodenya!</span>
-              <span class="gcard-badge hidden" id="done-typing">✓ Selesai</span>
-            </div>
-            <p class="gcard-desc">Lihat contoh kode, lalu ketik kode baru sesuai instruksi</p>
-            <div class="gcard-meta" id="meta-typing">8 soal · Belum dimainkan</div>
+        <div class="gcard gcard-green" id="card-typing" onclick="startGame('typing')">
+          <div class="gcard-num">04</div>
+          <div class="gcard-icon">⌨️</div>
+          <div class="gcard-info">
+            <div class="gcard-name">Ketik Kodenya!</div>
+            <div class="gcard-desc">Lihat contoh, lalu ketik kode sesuai instruksi</div>
+            <div class="gcard-meta" id="meta-typing">8 soal</div>
           </div>
-          <button class="gcard-btn btn-green" id="btn-typing">▶ Mulai</button>
-          <div class="gcard-bar bar-green" id="prog-typing"></div>
-        </div>
-
-        <!-- Info box -->
-        <div class="info-box">
-          <div class="info-title">🤔 Coding itu apa sih?</div>
-          <p class="info-text">Coding itu seperti kasih instruksi ke robot! Sama seperti kamu bilang ke adik: <em>"ambil piring → cuci → keringkan"</em> — komputer juga paham perintah seperti itu. Yuk latihan! 💪</p>
+          <div class="gcard-right">
+            <span class="gcard-done hidden" id="done-typing">✓</span>
+            <button class="gcard-btn" id="btn-typing">Mulai</button>
+          </div>
+          <div class="gcard-bar" id="prog-typing"></div>
         </div>
 
       </div>
@@ -110,25 +108,27 @@
   ══════════════════════════ -->
   <div id="screen-game" class="screen">
     <div class="game-wrap">
-
-      <div class="game-header" id="game-header">
-        <button class="back-btn" onclick="goHome()">←</button>
-        <div class="game-header-info">
-          <span class="game-header-icon" id="game-icon"></span>
+      <div class="game-nav" id="game-nav">
+        <button class="back-btn" onclick="goHome()">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M11 4L5 9l6 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <div class="nav-mid">
+          <span id="nav-icon" class="nav-icon"></span>
           <div>
-            <div class="game-header-title" id="game-title"></div>
-            <div class="game-header-sub" id="game-sub">Soal 1 dari 10</div>
+            <div id="nav-title" class="nav-title"></div>
+            <div id="nav-sub" class="nav-sub"></div>
           </div>
         </div>
-        <div class="game-score-pill" id="game-score">🏆 0</div>
+        <div class="score-pill" id="score-pill">🏆 0</div>
       </div>
 
-      <div class="game-progress-wrap">
-        <div class="game-progress-bar" id="game-progress"></div>
+      <div class="game-prog-track">
+        <div class="game-prog-fill" id="game-prog"></div>
       </div>
 
-      <div class="game-body" id="game-body"></div>
-
+      <div id="game-body" class="game-body"></div>
     </div>
   </div>
 
@@ -137,34 +137,28 @@
   ══════════════════════════ -->
   <div id="screen-result" class="screen screen-result">
     <div class="result-card">
-      <div class="result-emoji" id="result-emoji">🎉</div>
-      <h2 class="result-title" id="result-title"></h2>
-      <p class="result-game" id="result-game"></p>
-      <div class="result-score-box" id="result-score-box">
-        <span class="result-pts" id="result-pts"></span>
-        <span class="result-pts-lbl">poin</span>
+      <div class="result-big-emoji" id="res-emoji">🎉</div>
+      <h2 class="result-title" id="res-title">Selesai!</h2>
+      <p class="result-game" id="res-game"></p>
+      <div class="result-pts-wrap">
+        <span class="result-pts" id="res-pts">0</span>
+        <span class="result-pts-unit">poin</span>
       </div>
-      <div class="result-accuracy" id="result-accuracy"></div>
-      <div id="result-alldone" class="result-alldone hidden"></div>
+      <div class="result-acc" id="res-acc"></div>
+      <div class="result-alldone hidden" id="res-alldone"></div>
       <div class="result-btns">
-        <button class="rbtn-primary" id="btn-again" onclick="playAgain()">🔁 Main Lagi</button>
-        <button class="rbtn-ghost" onclick="goHome()">🏠 Menu</button>
+        <button class="rbtn-main" id="rbtn-again" onclick="playAgain()">🔁 Main Lagi</button>
+        <button class="rbtn-home" onclick="goHome()">🏠 Menu</button>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════
-       OVERLAYS
-  ══════════════════════════ -->
-  <!-- Correct overlay -->
-  <div id="overlay-correct" class="answer-overlay overlay-correct hidden">
-    <div class="overlay-icon">✓</div>
-    <div class="overlay-text">Benar!</div>
+  <!-- Flash overlays -->
+  <div id="ov-correct" class="flash-ov ov-ok hidden">
+    <div class="flash-icon">✓</div><div class="flash-txt">Benar!</div>
   </div>
-  <!-- Wrong overlay -->
-  <div id="overlay-wrong" class="answer-overlay overlay-wrong hidden">
-    <div class="overlay-icon">✗</div>
-    <div class="overlay-text">Kurang tepat</div>
+  <div id="ov-wrong" class="flash-ov ov-err hidden">
+    <div class="flash-icon">✗</div><div class="flash-txt">Hampir!</div>
   </div>
 
   <script src="app.js"></script>

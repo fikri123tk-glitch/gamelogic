@@ -1,368 +1,686 @@
-var AVATARS = ["🐱","🐶","🐸","🦊","🐼","🐨","🦁","🐯"];
-var AVATAR  = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-document.getElementById("home-avatar").textContent = AVATAR;
+/* ═══════════════════════════════════════════════════════
+   app.js — CoderKid  |  4 Games  |  Vanilla JS
+═══════════════════════════════════════════════════════ */
 
-// ── State ──────────────────────────────────────────────
+/* ── Avatar pick (shared) ────────────────────────────── */
+var AVATARS = ["🐱","🐶","🐸","🦊","🐼","🐨","🦁","🐯"];
+var MY_AVATAR = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+document.getElementById("home-avatar").textContent = MY_AVATAR;
+
+/* ── Background Canvas Animation ─────────────────────── */
+(function() {
+  var canvas = document.getElementById("bg-canvas");
+  var ctx    = canvas.getContext("2d");
+  var W, H;
+  var symbols = ["if","for","{}","=>","01","++","//","()","[]","!=","==","while","true","false","print"];
+  // Brighter, more visible colors
+  var COLORS = ["#3B82F6AA","#8B5CF6AA","#10B981AA","#FF6B35AA","#F59E0BAA","#EC4899AA"];
+  var particles = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function makeSymParticle() {
+    return {
+      type: "sym",
+      x:    Math.random() * W,
+      y:    H + 20,
+      sym:  symbols[Math.floor(Math.random() * symbols.length)],
+      col:  COLORS[Math.floor(Math.random() * COLORS.length)],
+      size: 14 + Math.random() * 14,
+      vx:   (Math.random() - 0.5) * 0.7,
+      vy:   -(0.5 + Math.random() * 0.7),
+      op:   0.35 + Math.random() * 0.45,
+      rot:  Math.random() * Math.PI * 2,
+      vrot: (Math.random() - 0.5) * 0.01,
+    };
+  }
+
+  function makeAvatarParticle() {
+    return {
+      type: "avatar",
+      x:    Math.random() * W,
+      y:    H + 60,
+      sym:  MY_AVATAR,
+      size: 32 + Math.random() * 28,
+      vx:   (Math.random() - 0.5) * 0.4,
+      vy:   -(0.25 + Math.random() * 0.35),
+      op:   0.22 + Math.random() * 0.22,
+      rot:  (Math.random() - 0.5) * 0.3,
+      vrot: (Math.random() - 0.5) * 0.005,
+      scale: 0.9 + Math.random() * 0.3,
+    };
+  }
+
+  function init() {
+    resize();
+    particles = [];
+    // 40 symbol particles
+    for (var i = 0; i < 40; i++) {
+      var p = makeSymParticle();
+      p.y = Math.random() * H; // scatter on load
+      particles.push(p);
+    }
+    // 10 avatar particles
+    for (var j = 0; j < 10; j++) {
+      var a = makeAvatarParticle();
+      a.y = Math.random() * H;
+      particles.push(a);
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    particles.forEach(function(p) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = p.op;
+
+      if (p.type === "sym") {
+        ctx.font = "700 " + p.size + "px 'JetBrains Mono', monospace";
+        ctx.fillStyle = p.col;
+        ctx.fillText(p.sym, 0, 0);
+      } else {
+        // avatar emoji — draw with emoji font, slightly scaled
+        ctx.font = p.size + "px serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(p.sym, 0, 0);
+      }
+      ctx.restore();
+
+      p.x   += p.vx;
+      p.y   += p.vy;
+      p.rot += p.vrot;
+
+      if (p.y < -80) {
+        if (p.type === "sym") {
+          Object.assign(p, makeSymParticle());
+        } else {
+          Object.assign(p, makeAvatarParticle());
+        }
+      }
+      if (p.x < -80)  p.x = W + 20;
+      if (p.x > W+80) p.x = -20;
+    });
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener("resize", function(){ resize(); });
+  init();
+  draw();
+})();
+
+/* ── State ───────────────────────────────────────────── */
 var GS = {
-  scores:    { sequence: 0, ifelse: 0, pattern: 0, typing: 0 },
-  completed: { sequence: false, ifelse: false, pattern: false, typing: false },
+  scores:    {sequence:0, robot:0, pattern:0, typing:0},
+  completed: {sequence:false, robot:false, pattern:false, typing:false},
   active: null,
 };
-
 var META = {
-  sequence: { title:"Urutan Perintah",   icon:"📋", color:"var(--orange)", bg:"var(--orange-d)", maxPts: function(){return SEQ_LEVELS.length*20;} },
-  ifelse:   { title:"Percabangan",       icon:"🔀", color:"var(--teal)",   bg:"var(--teal-d)",   maxPts: function(){return IF_LEVELS.length*20;} },
-  pattern:  { title:"Pola & Perulangan", icon:"🔄", color:"var(--purple)", bg:"var(--purple-d)", maxPts: function(){return PAT_LEVELS.length*20;} },
-  typing:   { title:"Ketik Kodenya!",    icon:"⌨️", color:"var(--green)",  bg:"var(--green-d)",  maxPts: function(){return TYP_LEVELS.length*20;} },
+  sequence: {title:"Urutan Perintah",   icon:"📋", color:"var(--orange)", shadow:"var(--orange-d)"},
+  robot:    {title:"Gerak Robot",       icon:"🤖", color:"var(--blue)",   shadow:"var(--blue-d)"},
+  pattern:  {title:"Pola & Perulangan", icon:"🔄", color:"var(--purple)", shadow:"var(--purple-d)"},
+  typing:   {title:"Ketik Kodenya!",    icon:"⌨️", color:"var(--green)",  shadow:"var(--green-d)"},
 };
 
-// ── Helpers ────────────────────────────────────────────
-function $(id)       { return document.getElementById(id); }
-function setH(id, h) { $(id).innerHTML = h; }
+/* ── Helpers ─────────────────────────────────────────── */
+function $$(id) { return document.getElementById(id); }
+function setH(id, h) { $$(id).innerHTML = h; }
 
-function lvCount(id) {
-  return id==="sequence" ? SEQ_LEVELS.length
-       : id==="ifelse"   ? IF_LEVELS.length
-       : id==="pattern"  ? PAT_LEVELS.length
-       : TYP_LEVELS.length;
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(function(s){ s.classList.remove("active"); });
+  $$(id).classList.add("active");
+  window.scrollTo(0, 0);
 }
 
 function chipCls(b) {
-  if (b==="Mudah")  return "easy";
-  if (b==="Sedang") return "medium";
-  return "hard";
+  return b==="Mudah"?"easy": b==="Sedang"?"medium":"hard";
 }
 
-function shuffle(arr) {
-  var a = arr.slice();
-  for (var i=a.length-1;i>0;i--){
-    var j=Math.floor(Math.random()*(i+1));
-    var t=a[i];a[i]=a[j];a[j]=t;
-  }
-  return a;
+function lvCount(id) {
+  return id==="sequence"?SEQ_LV.length:id==="robot"?ROBOT_LV.length:id==="pattern"?PAT_LV.length:TYP_LV.length;
 }
 
-function animateBody() {
-  var el = $("game-body");
-  el.style.animation = "none";
-  void el.offsetWidth;
-  el.style.animation = "";
+function animBody() {
+  var el = $$("game-body");
+  el.style.animation = "none"; void el.offsetWidth; el.style.animation = "";
 }
 
-function setGameScore(s, id) {
-  $("game-score").textContent = META[id].color ? "🏆 " + s : "🏆 " + s;
-  $("game-score").textContent = "🏆 " + s;
-  $("game-score").style.background = META[id].color;
+function setScore(n, id) {
+  var pill = $$("score-pill");
+  pill.textContent  = "🏆 " + n;
+  pill.style.background = META[id].color;
+  pill.classList.remove("bump");
+  void pill.offsetWidth;
+  pill.classList.add("bump");
 }
 
-function setProgress(cur, tot, id) {
-  var pct = Math.round((cur / tot) * 100);
-  $("game-progress").style.width      = pct + "%";
-  $("game-progress").style.background = META[id].color;
-  $("game-header").style.borderColor  = META[id].color + "55";
-  $("game-sub").textContent = "Soal " + (cur+1) + " dari " + tot;
+function setProg(cur, tot, id) {
+  $$("game-prog").style.width      = Math.round(cur/tot*100)+"%";
+  $$("game-prog").style.background = META[id].color;
+  $$("nav-sub").textContent = "Soal " + (cur+1) + " dari " + tot;
 }
 
-// ── Overlay flash ──────────────────────────────────────
-function flashOverlay(ok, cb) {
-  var el = ok ? $("overlay-correct") : $("overlay-wrong");
+function flash(ok, cb) {
+  var el = ok ? $$("ov-correct") : $$("ov-wrong");
   el.classList.remove("hidden");
-  setTimeout(function() {
-    el.classList.add("hidden");
-    if (cb) cb();
-  }, 800);
-}
-
-// ── Home refresh ───────────────────────────────────────
-function refreshHome() {
-  var total = 0, done = 0;
-  ["sequence","ifelse","pattern","typing"].forEach(function(id) {
-    total += GS.scores[id];
-    if (GS.completed[id]) done++;
-  });
-  $("total-score").textContent     = total;
-  $("completed-count").textContent = done + "/4";
-  $("all-done-msg").classList.toggle("hidden", done < 4);
-
-  ["sequence","ifelse","pattern","typing"].forEach(function(id) {
-    var isDone = GS.completed[id];
-    $("card-" + id).classList.toggle("done", isDone);
-    $("done-" + id).classList.toggle("hidden", !isDone);
-    $("prog-" + id).style.width     = isDone ? "100%" : "0%";
-    $("meta-" + id).textContent     = lvCount(id) + " soal · " + (isDone ? "Skor: " + GS.scores[id] : "Belum dimainkan");
-    $("btn-" + id).textContent      = isDone ? "🔁 Ulang" : "▶ Mulai";
-  });
+  setTimeout(function(){ el.classList.add("hidden"); if(cb) cb(); }, 800);
 }
 
 function goHome() { refreshHome(); showScreen("screen-home"); }
 
-// ── Screen management ─────────────────────────────────
-function showScreen(id) {
-  document.querySelectorAll(".screen").forEach(function(s) { s.classList.remove("active"); });
-  $(id).classList.add("active");
-  window.scrollTo(0,0);
+function refreshHome() {
+  var total = 0, done = 0;
+  ["sequence","robot","pattern","typing"].forEach(function(id){
+    total += GS.scores[id];
+    if(GS.completed[id]) done++;
+  });
+  $$("total-score").textContent     = total;
+  $$("completed-count").textContent = done + "/4";
+  $$("all-done-msg").classList.toggle("hidden", done < 4);
+  ["sequence","robot","pattern","typing"].forEach(function(id){
+    var isDone = GS.completed[id];
+    $$("done-"+id).classList.toggle("hidden", !isDone);
+    $$("prog-"+id).style.width    = isDone?"100%":"0%";
+    $$("meta-"+id).textContent    = lvCount(id)+" soal" + (isDone?" · Skor: "+GS.scores[id]:"");
+    $$("btn-"+id).textContent     = isDone?"🔁 Ulang":"Mulai";
+  });
 }
 
-// ── Start game ────────────────────────────────────────
 function startGame(id) {
   GS.active = id;
-  $("game-icon").textContent  = META[id].icon;
-  $("game-title").textContent = META[id].title;
-  $("game-score").style.background = META[id].color;
-  $("game-score").textContent = "🏆 0";
+  $$("nav-icon").textContent  = META[id].icon;
+  $$("nav-title").textContent = META[id].title;
+  $$("score-pill").style.background = META[id].color;
+  $$("score-pill").textContent = "🏆 0";
   showScreen("screen-game");
-  if (id==="sequence") initSequence();
-  if (id==="ifelse")   initIfElse();
-  if (id==="pattern")  initPattern();
-  if (id==="typing")   initTyping();
+  if(id==="sequence") initSeq();
+  if(id==="robot")    initRobot();
+  if(id==="pattern")  initPat();
+  if(id==="typing")   initTyp();
 }
 
-// ── Show result ───────────────────────────────────────
-function showResult(gameId, score) {
-  GS.scores[gameId]    = score;
-  GS.completed[gameId] = true;
+function showResult(id, score) {
+  GS.scores[id] = score; GS.completed[id] = true;
+  var maxP = lvCount(id) * 20;
+  var pct  = Math.round(score/maxP*100);
+  var emoji = pct>=80?"🏆":pct>=50?"😊":"💪";
+  var total = Object.values(GS.scores).reduce(function(a,b){return a+b;},0);
+  var done  = Object.values(GS.completed).filter(Boolean).length;
 
-  var maxP = META[gameId].maxPts();
-  var pct  = Math.round((score / maxP) * 100);
-  var emoji = pct >= 80 ? "🏆" : pct >= 50 ? "😊" : "💪";
-
-  var total = 0, done = 0;
-  ["sequence","ifelse","pattern","typing"].forEach(function(id) {
-    total += GS.scores[id];
-    if (GS.completed[id]) done++;
-  });
-
-  $("result-emoji").textContent  = emoji;
-  $("result-title").textContent  = pct>=80 ? "Hebat sekali!" : pct>=50 ? "Bagus!" : "Terus latihan!";
-  $("result-game").textContent   = META[gameId].icon + " " + META[gameId].title;
-  $("result-pts").textContent    = score;
-  $("result-pts").style.color    = META[gameId].color;
-  $("result-accuracy").textContent = "Akurasi " + pct + "% dari skor maksimum " + maxP;
-
-  var rbtn = $("btn-again");
-  rbtn.style.background = META[gameId].color;
-  rbtn.style.boxShadow  = "0 4px 0 " + META[gameId].bg;
-
-  var allEl = $("result-alldone");
-  if (done >= 4) {
-    allEl.classList.remove("hidden");
-    allEl.innerHTML = "🌟 Semua game selesai! Total poin kamu: <strong>" + total + "</strong>";
-  } else { allEl.classList.add("hidden"); }
-
+  $$("res-emoji").textContent = emoji;
+  $$("res-title").textContent = pct>=80?"Hebat sekali!":pct>=50?"Bagus!":"Terus latihan!";
+  $$("res-game").textContent  = META[id].icon+" "+META[id].title;
+  $$("res-pts").textContent   = score;
+  $$("res-pts").style.color   = META[id].color;
+  $$("res-acc").textContent   = "Akurasi "+pct+"% · Skor maks "+maxP+" poin";
+  $$("rbtn-again").style.background = META[id].color;
+  $$("rbtn-again").style.boxShadow  = "0 4px 0 "+META[id].shadow;
+  var allEl = $$("res-alldone");
+  if(done>=4){ allEl.classList.remove("hidden"); allEl.innerHTML="🌟 Semua game selesai! Total: <strong>"+total+"</strong> poin"; }
+  else allEl.classList.add("hidden");
   showScreen("screen-result");
 }
 
 function playAgain() { startGame(GS.active); }
 
 
-/* ══════════════════════════════════════════════════════
-   GAME 1 — URUTAN PERINTAH
-══════════════════════════════════════════════════════ */
-var SEQ_LEVELS = [
-  { badge:"Mudah", story:"Robot mau nyalakan lampu. Urutkan perintahnya yang benar.",
-    steps:["Lampu menyala","Colokkan kabel ke listrik","Tekan tombol ON","Beli lampunya dulu","Pasang lampu ke fitting"],
-    correct:[3,4,1,2,0] },
-  { badge:"Mudah", story:"Robot mau mengirim pesan lewat HP. Urutkan algoritmanya.",
-    steps:["Klik tombol Kirim","Buka aplikasi chat","Pilih nama teman","Ketik isi pesan","Buka kunci HP dulu"],
-    correct:[4,1,2,3,0] },
-  { badge:"Mudah", story:"Robot mau mencari informasi di Google. Urutkan langkahnya.",
-    steps:["Baca hasil pencarian","Buka browser","Ketik kata yang dicari","Klik tombol Search","Pastikan ada internet"],
-    correct:[4,1,2,3,0] },
-  { badge:"Mudah", story:"Robot mau mencetak dokumen. Urutkan perintahnya.",
-    steps:["Ambil hasil cetakan","Buka file dokumen","Nyalakan printer","Klik Print","Pilih ukuran kertas"],
-    correct:[2,1,4,3,0] },
-  { badge:"Sedang", story:"Robot mau login ke website. Urutkan algoritmanya.",
-    steps:["Masuk ke halaman utama","Ketik password","Ketik username","Klik tombol Login","Buka website-nya dulu"],
-    correct:[4,2,1,3,0] },
-  { badge:"Sedang", story:"Robot mau menyimpan file di komputer. Urutkan caranya.",
-    steps:["Klik Save","Tulis isi file","Pilih folder tujuan","Buka aplikasi teks","Beri nama file"],
-    correct:[3,1,2,4,0] },
-  { badge:"Sedang", story:"Robot mau menginstal aplikasi di HP. Urutkan algoritmanya.",
-    steps:["Buka aplikasinya","Klik Instal","Cari nama aplikasi","Tunggu proses selesai","Buka Play Store"],
-    correct:[4,2,1,3,0] },
-  { badge:"Sedang", story:"Programmer mau menjalankan program pertamanya. Urutkan langkahnya.",
-    steps:["Klik Run / Jalankan","Buka aplikasi coding","Periksa jika ada error","Tulis kode programnya","Buat file baru"],
-    correct:[1,4,3,0,2] },
-  { badge:"Susah", story:"Robot mau memperbaiki program yang error (debugging). Urutkan langkahnya.",
-    steps:["Jalankan ulang program","Cari baris yang error","Baca pesan errornya","Perbaiki kodenya","Jalankan program pertama kali"],
-    correct:[4,2,1,3,0] },
-  { badge:"Susah", story:"Tim robot mau membuat aplikasi baru. Urutkan tahapan pembuatannya.",
-    steps:["Rilis ke pengguna","Desain tampilan UI","Rencanakan fitur","Tulis kode program","Testing / Uji coba"],
-    correct:[2,1,3,4,0] },
+/* ═══════════════════════════════════════════════════════
+   GAME 1 — URUTAN PERINTAH  (drag & drop, 10 soal)
+═══════════════════════════════════════════════════════ */
+var SEQ_LV = [
+  { badge:"Mudah", story:"Siti mau makan siang. Urutkan langkahnya!",
+    steps:["Cuci tangan","Ambil piring","Makan","Duduk di meja","Bersyukur"], correct:[0,1,3,2,4] },
+  { badge:"Mudah", story:"Robot mau menyalakan komputer. Urutkan caranya!",
+    steps:["Klik ikon aplikasi","Tekan tombol power","Tunggu loading","Login dengan password"], correct:[1,2,3,0] },
+  { badge:"Mudah", story:"Budi mau mengirim foto ke teman. Urutkan langkahnya!",
+    steps:["Klik Kirim","Buka aplikasi chat","Pilih foto","Pilih teman"], correct:[1,3,2,0] },
+  { badge:"Mudah", story:"Robot mau mandi. Urutkan langkahnya!",
+    steps:["Keringkan badan","Buka kran air","Sabuni badan","Bilas dengan air"], correct:[1,2,3,0] },
+  { badge:"Sedang", story:"Tina mau membuat mie instan. Urutkan caranya!",
+    steps:["Makan mie-nya","Rebus air dulu","Masukkan mie ke air mendidih","Tiriskan & beri bumbu","Siapkan mangkuk"], correct:[1,2,3,4,0] },
+  { badge:"Sedang", story:"Robot mau mendownload aplikasi. Urutkan langkahnya!",
+    steps:["Buka aplikasinya","Buka Play Store","Tunggu download","Klik Install","Cari nama aplikasi"], correct:[1,4,3,0,2] },
+  { badge:"Sedang", story:"Programmer mau membuat website. Urutkan prosesnya!",
+    steps:["Upload ke internet","Tulis kode HTML","Desain tampilan dulu","Cek di browser","Rencanakan isinya"], correct:[4,2,1,3,0] },
+  { badge:"Sedang", story:"Riko mau mencetak dokumen. Urutkan caranya!",
+    steps:["Ambil hasil print","Buka file dokumen","Klik Print","Nyalakan printer","Pilih jumlah halaman"], correct:[3,1,4,2,0] },
+  { badge:"Susah", story:"Robot mau mengirim email. Urutkan algoritmanya!",
+    steps:["Klik Kirim","Buka Gmail","Tulis isi pesan","Tulis alamat email tujuan","Klik Tulis Pesan","Tulis subjek"], correct:[1,4,3,5,2,0] },
+  { badge:"Susah", story:"Tim mau membuat aplikasi dari nol. Urutkan tahapannya!",
+    steps:["Testing & perbaikan","Rilis ke pengguna","Rencanakan fitur","Desain tampilan","Tulis kode program"], correct:[2,3,4,0,1] },
 ];
 
-var seqLv=0, seqOrd=[], seqPts=0, seqTries=0;
+var seqLv=0, seqPts=0, seqTries=0;
+var seqOrder=[], dragSrc=null;
 
-function initSequence() { seqLv=0; seqPts=0; renderSeq(); }
+function initSeq() { seqLv=0; seqPts=0; renderSeq(); }
 
 function renderSeq() {
-  var lv=SEQ_LEVELS[seqLv];
-  seqOrd=shuffle([0,1,2,3,4].slice(0,lv.steps.length));
-  seqTries=0;
-  setGameScore(seqPts,"sequence");
-  setProgress(seqLv,SEQ_LEVELS.length,"sequence");
-  animateBody();
+  var lv = SEQ_LV[seqLv];
+  seqOrder = lv.steps.map(function(_,i){return i;});
+  // shuffle
+  for(var i=seqOrder.length-1;i>0;i--){
+    var j=Math.floor(Math.random()*(i+1));
+    var t=seqOrder[i];seqOrder[i]=seqOrder[j];seqOrder[j]=t;
+  }
+  seqTries = 0;
+  setScore(seqPts,"sequence");
+  setProg(seqLv, SEQ_LV.length, "sequence");
+  animBody();
+
   setH("game-body",
     '<div class="q-chip '+chipCls(lv.badge)+'">'+lv.badge+'</div>'+
     '<div class="q-scene">'+lv.story+'</div>'+
-    '<p style="font-size:11px;color:var(--muted);font-family:var(--f-mono);margin-bottom:12px;">Gunakan tombol ↑ ↓ untuk mengubah urutan</p>'+
+    '<p style="font-size:11.5px;color:var(--muted);font-weight:700;margin-bottom:10px;">Drag kartu untuk mengubah urutan</p>'+
     '<div class="seq-list" id="seq-list"></div>'+
-    '<div class="check-row">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:12px;">'+
       '<div class="q-fb" id="seq-fb"></div>'+
-      '<button class="btn-check" onclick="checkSeq()">Cek Jawaban ✓</button>'+
+      '<button class="btn-check" id="seq-check-btn" onclick="checkSeq()">Cek Jawaban ✓</button>'+
     '</div>'+
-    '<div class="q-info">Soal '+(seqLv+1)+' dari '+SEQ_LEVELS.length+' &nbsp;·&nbsp; Poin: <strong>'+seqPts+'</strong></div>'
+    '<div id="seq-next-row" style="margin-top:10px;"></div>'+
+    '<div class="q-info">Soal '+(seqLv+1)+' dari '+SEQ_LV.length+' · Poin: <strong>'+seqPts+'</strong></div>'
   );
   renderSeqList();
 }
 
 function renderSeqList() {
-  var lv=SEQ_LEVELS[seqLv], rows="";
-  for(var p=0;p<seqOrd.length;p++){
-    var si=seqOrd[p];
-    rows+='<div class="seq-item" id="si'+p+'">'+
-      '<span class="seq-num">'+(p+1)+'</span>'+
-      '<span class="seq-text">'+lv.steps[si]+'</span>'+
-      '<div class="seq-ctls">'+
-        '<button class="btn-mv" onclick="seqMv('+p+',-1)" '+(p===0?"disabled":"")+'>↑</button>'+
-        '<button class="btn-mv" onclick="seqMv('+p+',1)"  '+(p===seqOrd.length-1?"disabled":"")+'>↓</button>'+
-      '</div></div>';
-  }
-  setH("seq-list",rows);
-}
+  var lv = SEQ_LV[seqLv];
+  var list = $$("seq-list");
+  list.innerHTML = "";
+  seqOrder.forEach(function(si, pos) {
+    var el = document.createElement("div");
+    el.className   = "seq-item";
+    el.draggable   = true;
+    el.dataset.pos = pos;
+    el.innerHTML   =
+      '<span class="seq-handle">⠿</span>'+
+      '<span class="seq-num">'+(pos+1)+'</span>'+
+      '<span class="seq-text">'+lv.steps[si]+'</span>';
 
-function seqMv(pos,dir) {
-  var t=pos+dir; if(t<0||t>=seqOrd.length)return;
-  var tmp=seqOrd[pos];seqOrd[pos]=seqOrd[t];seqOrd[t]=tmp;
-  document.querySelectorAll(".seq-item").forEach(function(el){el.classList.remove("correct","wrong");});
-  var fb=$("seq-fb"); fb.textContent=""; fb.className="q-fb";
-  renderSeqList();
+    el.addEventListener("dragstart", function(e){
+      dragSrc = pos;
+      el.classList.add("dragging");
+      e.dataTransfer.effectAllowed = "move";
+    });
+    el.addEventListener("dragend", function(){
+      el.classList.remove("dragging");
+      document.querySelectorAll(".seq-item").forEach(function(i){ i.classList.remove("drag-over"); });
+    });
+    el.addEventListener("dragover", function(e){
+      e.preventDefault();
+      document.querySelectorAll(".seq-item").forEach(function(i){ i.classList.remove("drag-over"); });
+      el.classList.add("drag-over");
+    });
+    el.addEventListener("drop", function(e){
+      e.preventDefault();
+      if(dragSrc === null || dragSrc === pos) return;
+      var tmp = seqOrder[dragSrc]; seqOrder[dragSrc] = seqOrder[pos]; seqOrder[pos] = tmp;
+      document.querySelectorAll(".seq-item").forEach(function(i){ i.classList.remove("correct","wrong"); });
+      var fb = $$("seq-fb"); fb.textContent=""; fb.className="q-fb";
+      renderSeqList();
+    });
+
+    // touch support
+    el.addEventListener("touchstart", function(e){ dragSrc = pos; el.classList.add("dragging"); }, {passive:true});
+    el.addEventListener("touchend",   function(){ el.classList.remove("dragging"); });
+
+    list.appendChild(el);
+  });
 }
 
 function checkSeq() {
-  var lv=SEQ_LEVELS[seqLv];
-  var ok=seqOrd.every(function(v,i){return v===lv.correct[i];});
+  var lv = SEQ_LV[seqLv];
+  var ok = seqOrder.every(function(v,i){ return v === lv.correct[i]; });
   seqTries++;
   document.querySelectorAll(".seq-item").forEach(function(el){
-    el.classList.remove("correct","wrong"); el.classList.add(ok?"correct":"wrong");
+    el.classList.remove("correct","wrong");
+    el.classList.add(ok?"correct":"wrong");
   });
-  var fb=$("seq-fb");
-  if(ok){
-    var pts=seqTries===1?20:seqTries===2?15:10;
-    seqPts+=pts;
-    fb.textContent="Benar! +"+pts+" poin 🎉"; fb.className="q-fb ok";
-    setGameScore(seqPts,"sequence");
-    flashOverlay(true, function(){
-      if(seqLv>=SEQ_LEVELS.length-1){showResult("sequence",seqPts);}
-      else{seqLv++;renderSeq();}
-    });
+  var fb = $$("seq-fb");
+  if(ok) {
+    var pts = seqTries===1?20:seqTries===2?15:10;
+    seqPts += pts;
+    fb.textContent = ""; fb.className="q-fb";
+    setScore(seqPts,"sequence");
+    var checkBtn = $$("seq-check-btn");
+    if(checkBtn) checkBtn.style.display="none";
+    var nxtRow = $$("seq-next-row");
+    if(nxtRow){
+      nxtRow.innerHTML =
+        '<div class="answer-box answer-ok">'+
+          '<div class="ab-icon">✅</div>'+
+          '<div class="ab-title">Urutan sudah benar! +'+pts+' poin</div>'+
+          '<div class="ab-explain">Kamu bisa menyusun langkah-langkah dengan benar, seperti cara kerja algoritma! 🤖</div>'+
+        '</div>'+
+        '<button class="btn-next" style="margin-top:10px" onclick="nextSeq()">'+(seqLv>=SEQ_LV.length-1?"Lihat Hasil 🏆":"Soal Berikutnya →")+'</button>';
+    }
+    flash(true, null);
   } else {
-    fb.textContent="Urutan belum tepat, coba lagi!"; fb.className="q-fb err";
-    flashOverlay(false, function(){
-      document.querySelectorAll(".seq-item").forEach(function(el){el.classList.remove("wrong");});
+    fb.textContent = "Urutan belum tepat, coba lagi!"; fb.className="q-fb err";
+    flash(false, function(){
+      document.querySelectorAll(".seq-item").forEach(function(el){ el.classList.remove("wrong"); });
       fb.textContent=""; fb.className="q-fb";
     });
   }
 }
 
-
-/* ══════════════════════════════════════════════════════
-   GAME 2 — PERCABANGAN
-══════════════════════════════════════════════════════ */
-var IF_LEVELS = [
-  { badge:"Mudah", situation:"Hari ini hujan dan Dino punya payung.",
-    rules:[{c:"ci",t:"if hujan and punya_payung:"},{c:"ct",t:"    berangkat_sekolah()"},{c:"ce",t:"else:"},{c:"ct",t:"    tunggu_di_rumah()"}],
-    q:"Fungsi apa yang dipanggil?", opts:["berangkat_sekolah()","tunggu_di_rumah()","tidur()","pergi_belanja()"],
-    correct:0, hint:"hujan = True DAN punya_payung = True → kondisi AND terpenuhi." },
-  { badge:"Mudah", situation:"Nilai ulangan Sari adalah 60. Nilai lulus = 70.",
-    rules:[{c:"ci",t:"if nilai >= 70:"},{c:"ct",t:"    print('LULUS')"},{c:"ce",t:"else:"},{c:"ct",t:"    print('BELAJAR LAGI')"}],
-    q:"Apa yang dicetak?", opts:["'LULUS'","'BELAJAR LAGI'","Tidak ada output","Error"],
-    correct:1, hint:"60 >= 70 adalah False → masuk blok else." },
-  { badge:"Mudah", situation:"Baterai robot = 5%. Charger tersedia.",
-    rules:[{c:"ci",t:"if baterai < 20:"},{c:"ct",t:"    mulai_charge()"},{c:"ce",t:"else:"},{c:"ct",t:"    lanjut_kerja()"}],
-    q:"Fungsi apa yang dipanggil?", opts:["mulai_charge()","lanjut_kerja()","shutdown()","restart()"],
-    correct:0, hint:"5 < 20 adalah True → masuk blok if." },
-  { badge:"Mudah", situation:"angka = 8. Robot mengecek: genap atau ganjil?",
-    rules:[{c:"ci",t:"if angka % 2 == 0:"},{c:"ct",t:"    print('GENAP')"},{c:"ce",t:"else:"},{c:"ct",t:"    print('GANJIL')"}],
-    q:"Apa yang dicetak?", opts:["'GENAP'","'GANJIL'","'TIDAK TAHU'","Error"],
-    correct:0, hint:"8 % 2 = 0 → True → GENAP." },
-  { badge:"Sedang", situation:"lapar = True,  ada_makanan = False.",
-    rules:[{c:"ci",t:"if lapar and ada_makanan:"},{c:"ct",t:"    makan_di_rumah()"},{c:"ce",t:"else:"},{c:"ct",t:"    beli_di_warung()"}],
-    q:"Fungsi apa yang dipanggil?", opts:["makan_di_rumah()","beli_di_warung()","tidur()","telepon_teman()"],
-    correct:1, hint:"AND butuh keduanya True. True and False = False → masuk else." },
-  { badge:"Sedang", situation:"ada_uang = True,  hari_sabtu = True.",
-    rules:[{c:"ci",t:"if ada_uang or hari_sabtu:"},{c:"ct",t:"    beli_es_krim()"},{c:"ce",t:"else:"},{c:"ct",t:"    pulang_saja()"}],
-    q:"Fungsi apa yang dipanggil?", opts:["beli_es_krim()","pulang_saja()","menabung()","nunggu_besok()"],
-    correct:0, hint:"OR cukup satu True. True or True = True → masuk if." },
-  { badge:"Sedang", situation:"input_password = 'abc123',  password_benar = 'abc123'.",
-    rules:[{c:"ci",t:"if input_password == password_benar:"},{c:"ct",t:"    akses_diberikan()"},{c:"ce",t:"else:"},{c:"ct",t:"    akses_ditolak()"}],
-    q:"Fungsi apa yang dipanggil?", opts:["akses_diberikan()","akses_ditolak()","coba_lagi()","error()"],
-    correct:0, hint:"'abc123' == 'abc123' → True → akses_diberikan()." },
-  { badge:"Sedang", situation:"a = 10,  b = 20.",
-    rules:[{c:"ci",t:"if a > b:"},{c:"ct",t:"    print('a lebih besar')"},{c:"ce",t:"else:"},{c:"ct",t:"    print('b lebih besar')"}],
-    q:"Apa yang dicetak?", opts:["'a lebih besar'","'b lebih besar'","'sama besar'","Tidak ada output"],
-    correct:1, hint:"10 > 20 adalah False → masuk else." },
-  { badge:"Susah", situation:"suhu = 35,  kipas_rusak = True.",
-    rules:[{c:"ci",t:"if suhu > 30 and kipas_rusak:"},{c:"ct",t:"    nyalakan_AC()"},{c:"ce2",t:"elif suhu > 30:"},{c:"ct",t:"    nyalakan_kipas()"},{c:"ce",t:"else:"},{c:"ct",t:"    tidak_perlu_apa()"}],
-    q:"Fungsi apa yang dipanggil?", opts:["nyalakan_AC()","nyalakan_kipas()","tidak_perlu_apa()","Error"],
-    correct:0, hint:"35>30=True AND kipas_rusak=True → kondisi if pertama terpenuhi." },
-  { badge:"Susah", situation:"nilai = 85.",
-    rules:[{c:"ci",t:"if nilai >= 90:"},{c:"ct",t:"    grade = 'A'"},{c:"ce2",t:"elif nilai >= 75:"},{c:"ct",t:"    grade = 'B'"},{c:"ce",t:"else:"},{c:"ct",t:"    grade = 'C'"}],
-    q:"Nilai grade yang tersimpan adalah?", opts:["Grade A","Grade B","Grade C","Tidak ada grade"],
-    correct:1, hint:"85 >= 90 → False. 85 >= 75 → True → grade = 'B'." },
-];
-
-var ifLv=0, ifPts=0;
-
-function initIfElse() { ifLv=0; ifPts=0; renderIf(); }
-
-function renderIf() {
-  var lv=IF_LEVELS[ifLv];
-  setGameScore(ifPts,"ifelse");
-  setProgress(ifLv,IF_LEVELS.length,"ifelse");
-  animateBody();
-  var code=""; lv.rules.forEach(function(r){code+='<span class="'+r.c+'">'+r.t+'</span>\n';});
-  var opts=""; lv.opts.forEach(function(o,i){opts+='<button class="btn-opt" id="io'+i+'" onclick="checkIf('+i+')">'+o+'</button>';});
-  setH("game-body",
-    '<div class="q-chip '+chipCls(lv.badge)+'">'+lv.badge+'</div>'+
-    '<div class="q-scene">'+lv.situation+'</div>'+
-    '<div class="code-block"><pre>'+code+'</pre></div>'+
-    '<div class="q-hint">💡 '+lv.hint+'</div>'+
-    '<div class="q-label">'+lv.q+'</div>'+
-    '<div class="opts-grid">'+opts+'</div>'+
-    '<div class="q-fb" id="if-fb" style="margin-top:14px"></div>'+
-    '<div class="q-info">Soal '+(ifLv+1)+' dari '+IF_LEVELS.length+' &nbsp;·&nbsp; Poin: <strong>'+ifPts+'</strong></div>'
-  );
+function nextSeq() {
+  if(seqLv >= SEQ_LV.length-1) showResult("sequence", seqPts);
+  else { seqLv++; renderSeq(); }
 }
 
-function checkIf(idx) {
-  var lv=IF_LEVELS[ifLv], ok=idx===lv.correct;
-  document.querySelectorAll(".btn-opt").forEach(function(b){b.disabled=true;});
-  document.getElementById("io"+idx).classList.add(ok?"correct":"wrong");
-  if(!ok) document.getElementById("io"+lv.correct).classList.add("reveal");
-  var fb=$("if-fb");
-  if(ok){
-    ifPts+=20; fb.textContent="Benar! +20 poin 🎉"; fb.className="q-fb ok";
-    setGameScore(ifPts,"ifelse");
-    flashOverlay(true,function(){
-      if(ifLv>=IF_LEVELS.length-1){showResult("ifelse",ifPts);}
-      else{ifLv++;renderIf();}
-    });
-  } else {
-    fb.textContent="Kurang tepat — jawaban benar sudah ditandai."; fb.className="q-fb err";
-    flashOverlay(false,function(){
-      if(ifLv>=IF_LEVELS.length-1){showResult("ifelse",ifPts);}
-      else{setTimeout(function(){ifLv++;renderIf();},500);}
-    });
+
+/* ═══════════════════════════════════════════════════════
+   GAME 2 — GERAK ROBOT  (grid navigation, 8 level)
+═══════════════════════════════════════════════════════ */
+// Grid: 0=empty, 1=wall, R=robot start, G=goal
+// Directions: U=up, D=down, L=left, R=right
+var ROBOT_LV = [
+  { badge:"Mudah", story:"Robot mau ambil bintang! Kasih perintah arahnya.",
+    size:3,
+    grid:["0","0","0",
+          "0","0","0",
+          "R","0","G"],
+    solution:["R","R"],
+  },
+  { badge:"Mudah", story:"Robot harus jalan ke atas menuju bintang!",
+    size:3,
+    grid:["G","0","0",
+          "0","0","0",
+          "R","0","0"],
+    solution:["U","U"],
+  },
+  { badge:"Mudah", story:"Robot butuh jalan memutar. Kasih 3 perintah!",
+    size:3,
+    grid:["0","0","G",
+          "0","0","0",
+          "R","0","0"],
+    solution:["U","R","U"],
+  },
+  { badge:"Mudah", story:"Hati-hati ada tembok! Cari jalan yang benar.",
+    size:4,
+    grid:["0","0","0","G",
+          "0","1","1","0",
+          "0","0","0","0",
+          "R","0","0","0"],
+    solution:["U","R","R","U","U"],
+  },
+  { badge:"Sedang", story:"Maze lebih panjang! Robot butuh banyak langkah.",
+    size:4,
+    grid:["0","0","0","G",
+          "0","1","0","1",
+          "0","1","0","0",
+          "R","0","0","0"],
+    solution:["U","U","U","R","R","R"],
+  },
+  { badge:"Sedang", story:"Ada banyak tembok. Pikirkan rutenya dengan hati-hati!",
+    size:4,
+    grid:["0","G","0","0",
+          "0","1","1","0",
+          "0","0","1","0",
+          "R","0","0","0"],
+    solution:["R","R","R","U","U","U","L","L"],
+  },
+  { badge:"Sedang", story:"Robot harus zig-zag melewati rintangan!",
+    size:5,
+    grid:["0","0","0","0","G",
+          "0","1","1","1","0",
+          "0","0","0","1","0",
+          "1","1","0","1","0",
+          "R","0","0","0","0"],
+    solution:["R","R","U","U","U","R","U","R"],
+  },
+  { badge:"Susah", story:"Level terakhir! Temukan jalur terpendek ke bintang.",
+    size:5,
+    grid:["0","0","0","0","G",
+          "0","1","0","1","0",
+          "0","1","0","1","0",
+          "0","0","0","0","0",
+          "R","1","1","1","0"],
+    solution:["R","R","R","R","U","U","U","U"],
+  },
+];
+
+var robLv=0, robPts=0;
+var robPos={r:0,c:0}, robQueue=[], robRunning=false;
+
+function initRobot() { robLv=0; robPts=0; renderRobot(); }
+
+function getRobotStartPos(lv) {
+  for(var i=0;i<lv.grid.length;i++){
+    if(lv.grid[i]==="R") return {r:Math.floor(i/lv.size), c:i%lv.size};
+  }
+  return {r:0,c:0};
+}
+function getGoalPos(lv) {
+  for(var i=0;i<lv.grid.length;i++){
+    if(lv.grid[i]==="G") return {r:Math.floor(i/lv.size), c:i%lv.size};
+  }
+  return {r:0,c:0};
+}
+
+function renderRobot() {
+  var lv = ROBOT_LV[robLv];
+  robPos   = getRobotStartPos(lv);
+  robQueue = [];
+  robRunning = false;
+  setScore(robPts,"robot");
+  setProg(robLv, ROBOT_LV.length, "robot");
+  animBody();
+
+  setH("game-body",
+    '<div class="robot-wrap">'+
+      '<div class="q-chip '+chipCls(lv.badge)+'">'+lv.badge+'</div>'+
+      '<div class="robot-scene-card">'+
+        '<div class="robot-story">'+lv.story+'</div>'+
+        '<div class="robot-grid-wrap"><div class="robot-grid" id="rob-grid" style="grid-template-columns:repeat('+lv.size+',1fr)"></div></div>'+
+        '<div class="robot-legend">'+
+          '<div class="legend-item"><div class="legend-dot legend-start"></div> Robot</div>'+
+          '<div class="legend-item"><div class="legend-dot legend-goal"></div> Tujuan ⭐</div>'+
+          '<div class="legend-item"><div class="legend-dot legend-wall"></div> Tembok</div>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="cmd-section">'+
+        '<div class="cmd-label">Antrian Perintah (klik untuk hapus)</div>'+
+        '<div class="cmd-queue" id="cmd-queue"></div>'+
+        '<div class="dir-pad" id="dir-pad">'+
+          '<button class="dir-btn" data-dir="U" onclick="addCmd(\'U\')">↑</button>'+
+          '<button class="dir-btn" data-dir="L" onclick="addCmd(\'L\')">←</button>'+
+          '<button class="dir-btn" data-dir="R" onclick="addCmd(\'R\')">→</button>'+
+          '<button class="dir-btn" data-dir="D" onclick="addCmd(\'D\')">↓</button>'+
+        '</div>'+
+      '</div>'+
+
+      '<div class="robot-action-row">'+
+        '<button class="btn-run" id="btn-run" onclick="runRobot()">▶ Jalankan Robot!</button>'+
+        '<button class="btn-clear" onclick="clearCmds()">🗑 Hapus Semua</button>'+
+      '</div>'+
+      '<div class="robot-result-msg" id="rob-msg"></div>'+
+      '<div class="robot-step-counter" id="rob-steps"></div>'+
+      '<div class="q-info">Level '+(robLv+1)+' dari '+ROBOT_LV.length+' · Poin: <strong>'+robPts+'</strong></div>'+
+    '</div>'
+  );
+  drawGrid(lv, robPos, []);
+}
+
+function drawGrid(lv, pos, trail) {
+  var grid = $$("rob-grid");
+  if(!grid) return;
+  grid.innerHTML = "";
+  var goal = getGoalPos(lv);
+  for(var r=0;r<lv.size;r++){
+    for(var c=0;c<lv.size;c++){
+      var idx  = r*lv.size+c;
+      var cell = document.createElement("div");
+      cell.className = "cell";
+      var isRobot = (pos.r===r && pos.c===c);
+      var isGoal  = (goal.r===r && goal.c===c);
+      var isWall  = lv.grid[idx]==="1";
+      var isTrail = trail.some(function(t){return t.r===r&&t.c===c;});
+
+      if(isRobot)       { cell.classList.add("robot"); cell.textContent="🤖"; }
+      else if(isGoal)   { cell.classList.add("goal");  cell.textContent="⭐"; }
+      else if(isWall)   { cell.classList.add("wall"); }
+      else if(isTrail)  { cell.classList.add("trail"); cell.textContent="·"; }
+
+      grid.appendChild(cell);
+    }
   }
 }
 
+function addCmd(dir) {
+  if(robRunning) return;
+  if(robQueue.length >= 20) return;
+  robQueue.push(dir);
+  renderQueue();
+}
 
-/* ══════════════════════════════════════════════════════
-   GAME 3 — POLA & PERULANGAN
-══════════════════════════════════════════════════════ */
-var PAT_LEVELS = [
-  { badge:"Mudah", sit:"Ibu menata buah di meja setiap pagi:", pattern:["🍎","🍌","🍎","🍌","🍎","?"],
+function removeCmd(idx) {
+  if(robRunning) return;
+  robQueue.splice(idx, 1);
+  renderQueue();
+}
+
+function clearCmds() {
+  if(robRunning) return;
+  robQueue = [];
+  renderQueue();
+  var msg = $$("rob-msg");
+  if(msg) { msg.className="robot-result-msg"; msg.style.display="none"; }
+  var lv = ROBOT_LV[robLv];
+  robPos = getRobotStartPos(lv);
+  drawGrid(lv, robPos, []);
+}
+
+function renderQueue() {
+  var qEl = $$("cmd-queue");
+  if(!qEl) return;
+  var labels = {U:"↑ Atas", D:"↓ Bawah", L:"← Kiri", R:"→ Kanan"};
+  qEl.innerHTML = "";
+  qEl.classList.toggle("has-cmds", robQueue.length > 0);
+  robQueue.forEach(function(d, i){
+    var chip = document.createElement("div");
+    chip.className   = "cmd-chip";
+    chip.innerHTML   = labels[d];
+    chip.onclick     = function(){ removeCmd(i); };
+    chip.title       = "Klik untuk hapus";
+    qEl.appendChild(chip);
+  });
+  if(robQueue.length===0){
+    qEl.innerHTML='<span style="font-family:var(--fm);font-size:11px;color:var(--subtle);">Tekan tombol arah untuk menambah perintah...</span>';
+  }
+}
+
+function runRobot() {
+  if(robRunning || robQueue.length===0) return;
+  robRunning = true;
+  $$("btn-run").disabled = true;
+  var lv    = ROBOT_LV[robLv];
+  var goal  = getGoalPos(lv);
+  var pos   = {r: robPos.r, c: robPos.c};
+  var trail = [];
+  var step  = 0;
+  var cmds  = robQueue.slice();
+  var failed = false;
+
+  function execStep() {
+    if(step >= cmds.length) {
+      // final check
+      var won = (pos.r===goal.r && pos.c===goal.c);
+      drawGrid(lv, pos, trail);
+      var msg = $$("rob-msg");
+      if(won) {
+        robPts += 20;
+        setScore(robPts,"robot");
+        msg.textContent = "🎉 Robot sampai tujuan! +20 poin";
+        msg.className   = "robot-result-msg ok";
+        flash(true, function(){
+          robRunning = false;
+          // show next button
+          var nxtDiv = document.createElement("div");
+          nxtDiv.style.marginTop = "10px";
+          nxtDiv.innerHTML = '<button class="btn-next" onclick="nextRobot()">'+(robLv>=ROBOT_LV.length-1?"Lihat Hasil 🏆":"Level Berikutnya →")+'</button>';
+          msg.parentNode.insertBefore(nxtDiv, msg.nextSibling);
+        });
+      } else {
+        msg.textContent = "🤖 Robot belum sampai tujuan. Coba lagi!";
+        msg.className   = "robot-result-msg err";
+        flash(false, function(){
+          robRunning = false;
+          $$("btn-run").disabled = false;
+          robPos = getRobotStartPos(lv);
+          robQueue = [];
+          renderQueue();
+          drawGrid(lv, robPos, []);
+          var m2 = $$("rob-msg"); if(m2) { m2.className="robot-result-msg"; m2.style.display="none"; }
+        });
+      }
+      return;
+    }
+
+    var cmd = cmds[step];
+    var nr = pos.r + (cmd==="U"?-1:cmd==="D"?1:0);
+    var nc = pos.c + (cmd==="L"?-1:cmd==="R"?1:0);
+
+    // boundary check
+    if(nr<0||nr>=lv.size||nc<0||nc>=lv.size) { failed=true; }
+    // wall check
+    else if(lv.grid[nr*lv.size+nc]==="1") { failed=true; }
+    else { trail.push({r:pos.r, c:pos.c}); pos.r=nr; pos.c=nc; }
+
+    // highlight current cmd
+    var chips = document.querySelectorAll(".cmd-chip");
+    chips.forEach(function(c,i){ c.classList.toggle("active-step", i===step); });
+
+    drawGrid(lv, pos, trail);
+
+    if(failed) {
+      // hit wall
+      var cells = $$("rob-grid").children;
+      var ci = pos.r*lv.size+pos.c;
+      if(cells[ci]) cells[ci].classList.add("wrong-cell");
+      var msg2 = $$("rob-msg");
+      msg2.textContent = "🤖 Aduh! Robot menabrak tembok. Coba lagi!";
+      msg2.className = "robot-result-msg err";
+      flash(false, function(){
+        robRunning = false;
+        $$("btn-run").disabled = false;
+        robPos = getRobotStartPos(lv);
+        robQueue = [];
+        renderQueue();
+        drawGrid(lv, robPos, []);
+        var m3 = $$("rob-msg"); if(m3){ m3.className="robot-result-msg"; m3.style.display="none"; }
+      });
+      return;
+    }
+
+    step++;
+    $$("rob-steps").textContent = "Langkah ke-" + step + " dari " + cmds.length;
+    setTimeout(execStep, 380);
+  }
+
+  execStep();
+}
+
+
+function nextRobot() {
+  if(robLv >= ROBOT_LV.length-1) showResult("robot", robPts);
+  else { robLv++; renderRobot(); }
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   GAME 3 — POLA & PERULANGAN  (10 soal)
+═══════════════════════════════════════════════════════ */
+var PAT_LV = [
+  { badge:"Mudah", sit:"Ibu menata buah di meja setiap pagi:",
+    pattern:["🍎","🍌","🍎","🍌","🍎","?"],
     q:"Buah ke-6 adalah?", opts:["Apel","Pisang","Jeruk","Anggur"], correct:1, hint:"Pola: apel-pisang bergantian. Posisi genap = pisang." },
   { badge:"Mudah", sit:"Robot mencetak teks berulang:",
     code:[{c:"cl",t:"for i in range(4):"},{c:"ca",t:"    print('Halo')"}],
@@ -370,239 +688,225 @@ var PAT_LEVELS = [
   { badge:"Mudah", sit:"Robot menghitung mundur:",
     code:[{c:"cl",t:"i = 5"},{c:"cl",t:"while i > 0:"},{c:"ca",t:"    print(i)"},{c:"ca",t:"    i = i - 1"}],
     q:"Angka apa saja yang dicetak?", opts:["5,4,3,2,1","1,2,3,4,5","5,4,3,2,1,0","4,3,2,1,0"], correct:0, hint:"Mulai i=5, kurang 1 tiap putaran. Berhenti saat i=0 (tidak dicetak)." },
-  { badge:"Mudah", sit:"Robot menyiram tanaman selama 7 hari:",
+  { badge:"Mudah", sit:"Robot menyiram tanaman 7 hari:",
     code:[{c:"cl",t:"for hari in range(7):"},{c:"ca",t:"    siram_tanaman()"}],
-    q:"Total siram_tanaman() dipanggil berapa kali?", opts:["5 kali","6 kali","7 kali","8 kali"], correct:2, hint:"range(7) → 7 iterasi → fungsi dipanggil 7 kali." },
+    q:"Total siram_tanaman() dipanggil berapa kali?", opts:["5 kali","6 kali","7 kali","8 kali"], correct:2, hint:"range(7) → 7 iterasi → dipanggil 7 kali." },
+  // ── soal 5-10: all visual patterns, no code ──
   { badge:"Sedang", sit:"Riko menghias kelas dengan bendera warna-warni:", pattern:["🟥","🟨","🟦","🟥","🟨","🟦","🟥","?"],
-    q:"Bendera ke-8 warnanya apa?", opts:["Merah","Kuning","Biru","Hijau"], correct:1, hint:"Pola 3 warna. 8 % 3 = 2 → urutan ke-2 (mulai 0) = Kuning." },
-  { badge:"Sedang", sit:"Robot menjumlahkan angka 1 sampai 5:",
-    code:[{c:"cl",t:"total = 0"},{c:"cl",t:"for i in range(1, 6):"},{c:"ca",t:"    total = total + i"}],
-    q:"Nilai total di akhir loop?", opts:["10","15","20","25"], correct:1, hint:"1+2+3+4+5 = 15." },
-  { badge:"Sedang", sit:"Robot mencetak segitiga bintang:",
-    code:[{c:"cl",t:"for i in range(1, 5):"},{c:"ca",t:"    print('*' * i)"}],
-    q:"Baris ke-3 ada berapa bintang?", opts:["1 bintang","2 bintang","3 bintang","4 bintang"], correct:2, hint:"i=3 → print('*' * 3) → mencetak ***." },
-  { badge:"Sedang", sit:"Robot mencari nilai terbesar dari [3, 7, 2, 9, 5]:",
-    code:[{c:"cl",t:"maks = 0"},{c:"cl",t:"for angka in [3, 7, 2, 9, 5]:"},{c:"ci",t:"    if angka > maks:"},{c:"ca",t:"        maks = angka"}],
-    q:"Nilai maks di akhir loop?", opts:["3","7","5","9"], correct:3, hint:"Loop memeriksa satu per satu. Nilai terbesar = 9." },
-  { badge:"Susah", sit:"Robot mencuci piring — 2 rak, tiap rak 4 piring:",
-    code:[{c:"cl",t:"for rak in range(2):"},{c:"cl2",t:"    for piring in range(4):"},{c:"ca",t:"        cuci_piring()"}],
-    q:"Total cuci_piring() dipanggil berapa kali?", opts:["4 kali","6 kali","8 kali","10 kali"], correct:2, hint:"Loop bersarang: 2 × 4 = 8 pemanggilan." },
-  { badge:"Susah", sit:"Robot mencetak tabel perkalian 3:",
-    code:[{c:"cl",t:"for i in range(1, 6):"},{c:"ca",t:"    print(3 * i)"}],
-    q:"Angka ke-4 yang dicetak adalah?", opts:["9","12","15","16"], correct:1, hint:"i=1→3, i=2→6, i=3→9, i=4→12." },
+    q:"Bendera ke-8 warnanya apa?", opts:["Merah","Kuning","Biru","Hijau"], correct:1,
+    explain:"Polanya: Merah → Kuning → Biru, lalu diulang lagi. Bendera ke-8 = urutan ke-2 dalam pola = Kuning! 🟨" },
+  { badge:"Sedang", sit:"Ibu menanam bunga setiap hari. Hari 1 dia tanam 2 bunga, hari 2 tanam 4 bunga, hari 3 tanam 6 bunga.",
+    visual:["🌸×2","🌸×4","🌸×6","🌸×?"],
+    q:"Hari ke-4 berapa bunga yang ditanam?", opts:["6 bunga","7 bunga","8 bunga","10 bunga"], correct:2,
+    explain:"Polanya bertambah 2 setiap hari! 2 → 4 → 6 → 8. Hari ke-4 = 8 bunga! 🌸" },
+  { badge:"Sedang", sit:"Robot melompat mengikuti pola:",
+    pattern:["🐸","🐸","⭐","🐸","🐸","⭐","🐸","🐸","?"],
+    q:"Giliran ke-9 apa?", opts:["Katak 🐸","Bintang ⭐","Bulan 🌙","Hati ❤️"], correct:1,
+    explain:"Polanya: Katak, Katak, Bintang — diulang terus. Giliran ke-9 = posisi ke-3 dalam pola = Bintang! ⭐" },
+  { badge:"Sedang", sit:"Sebuah lift naik dari lantai 1. Setiap menit naik 3 lantai.",
+    visual:["Menit 0: Lantai 1","Menit 1: Lantai 4","Menit 2: Lantai 7","Menit 3: Lantai ?"],
+    q:"Di menit ke-3, lift ada di lantai berapa?", opts:["Lantai 8","Lantai 9","Lantai 10","Lantai 12"], correct:2,  // 1 + 3*3 = 10
+    explain:"Setiap menit naik 3 lantai. Mulai dari 1: 1+3=4, 4+3=7, 7+3=10. Menit ke-3 = lantai 10! 🛗" },
+  { badge:"Susah", sit:"Robot mengecat pagar. Ada 12 pagar, setiap menit dia mengecat 4 pagar.",
+    visual:["Menit 1: 4 pagar","Menit 2: 8 pagar","Menit 3: 12 pagar","Total: selesai!"],
+    q:"Berapa menit robot mengecat semua pagar?", opts:["2 menit","3 menit","4 menit","6 menit"], correct:1,
+    explain:"Robot cat 4 pagar per menit. 12 ÷ 4 = 3 menit untuk selesaikan semuanya! 🎨" },
+  { badge:"Susah", sit:"Sekolah punya 3 kelas. Setiap kelas punya 5 meja. Setiap meja punya 2 kursi.",
+    visual:["🏫 3 kelas","×5 meja per kelas","×2 kursi per meja","= ? kursi total"],
+    q:"Total berapa kursi di sekolah?", opts:["15 kursi","25 kursi","30 kursi","45 kursi"], correct:2,
+    explain:"3 kelas × 5 meja = 15 meja. 15 meja × 2 kursi = 30 kursi total! 🪑" },
 ];
 
 var patLv=0, patPts=0;
-
-function initPattern() { patLv=0; patPts=0; renderPat(); }
+function initPat() { patLv=0; patPts=0; renderPat(); }
 
 function renderPat() {
-  var lv=PAT_LEVELS[patLv];
-  setGameScore(patPts,"pattern");
-  setProgress(patLv,PAT_LEVELS.length,"pattern");
-  animateBody();
-  var visual="";
+  var lv=PAT_LV[patLv];
+  setScore(patPts,"pattern");
+  setProg(patLv,PAT_LV.length,"pattern");
+  animBody();
+
+  // Build visual
+  var vis="";
   if(lv.pattern){
-    var cells=""; lv.pattern.forEach(function(e){cells+='<div class="pat-cell '+(e==="?"?"unknown":"")+'">'+(e==="?"?"?":e)+'</div>';});
-    visual='<div class="pat-row">'+cells+'</div>';
+    var cells=""; lv.pattern.forEach(function(e){
+      cells+='<div class="pat-cell '+(e==="?"?"unknown":"")+'">'+(e==="?"?"?":e)+'</div>';
+    });
+    vis='<div class="pat-row">'+cells+'</div>';
+  } else if(lv.visual) {
+    var vcells=""; lv.visual.forEach(function(v){
+      vcells+='<div class="vis-item">'+v+'</div>';
+    });
+    vis='<div class="vis-row">'+vcells+'</div>';
   }
-  if(lv.code){
-    var lines=""; lv.code.forEach(function(l){lines+='<span class="'+l.c+'">'+l.t+'</span>\n';});
-    visual='<div class="code-block"><pre>'+lines+'</pre></div>';
-  }
-  var opts=""; lv.opts.forEach(function(o,i){opts+='<button class="btn-opt" id="po'+i+'" onclick="checkPat('+i+')">'+o+'</button>';});
+
+  var opts=""; lv.opts.forEach(function(o,i){
+    opts+='<button class="btn-opt" id="po'+i+'" onclick="checkPat('+i+')">'+o+'</button>';
+  });
+
   setH("game-body",
     '<div class="q-chip '+chipCls(lv.badge)+'">'+lv.badge+'</div>'+
     '<div class="q-scene">'+lv.sit+'</div>'+
-    visual+
-    '<div class="q-hint">💡 '+lv.hint+'</div>'+
+    vis+
     '<div class="q-label">'+lv.q+'</div>'+
     '<div class="opts-grid">'+opts+'</div>'+
-    '<div class="q-fb" id="pat-fb" style="margin-top:14px"></div>'+
-    '<div class="q-info">Soal '+(patLv+1)+' dari '+PAT_LEVELS.length+' &nbsp;·&nbsp; Poin: <strong>'+patPts+'</strong></div>'
+    '<div class="answer-box hidden" id="pat-answer-box"></div>'+
+    '<div style="margin-top:14px;"><button class="btn-next hidden" id="pat-next" onclick="nextPat()">Soal Berikutnya →</button></div>'+
+    '<div class="q-info">Soal '+(patLv+1)+' dari '+PAT_LV.length+' · Poin: <strong>'+patPts+'</strong></div>'
   );
 }
 
-function checkPat(idx) {
-  var lv=PAT_LEVELS[patLv], ok=idx===lv.correct;
+function checkPat(idx){
+  var lv=PAT_LV[patLv], ok=idx===lv.correct;
   document.querySelectorAll(".btn-opt").forEach(function(b){b.disabled=true;});
-  document.getElementById("po"+idx).classList.add(ok?"correct":"wrong");
-  if(!ok) document.getElementById("po"+lv.correct).classList.add("reveal");
-  var fb=$("pat-fb");
+  $$("po"+idx).classList.add(ok?"correct":"wrong");
+  if(!ok) $$("po"+lv.correct).classList.add("reveal");
+
+  var box = $$("pat-answer-box");
+  box.classList.remove("hidden");
   if(ok){
-    patPts+=20; fb.textContent="Benar! +20 poin 🎉"; fb.className="q-fb ok";
-    setGameScore(patPts,"pattern");
-    flashOverlay(true,function(){
-      if(patLv>=PAT_LEVELS.length-1){showResult("pattern",patPts);}
-      else{patLv++;renderPat();}
-    });
+    patPts+=20;
+    setScore(patPts,"pattern");
+    box.className = "answer-box answer-ok";
+    box.innerHTML = '<div class="ab-icon">🎉</div><div class="ab-title">Benar! +20 poin</div><div class="ab-explain">'+lv.explain+'</div>';
+    flash(true, null);
   } else {
-    fb.textContent="Kurang tepat — jawaban benar sudah ditandai."; fb.className="q-fb err";
-    flashOverlay(false,function(){
-      if(patLv>=PAT_LEVELS.length-1){showResult("pattern",patPts);}
-      else{setTimeout(function(){patLv++;renderPat();},500);}
-    });
+    box.className = "answer-box answer-err";
+    box.innerHTML = '<div class="ab-icon">💡</div><div class="ab-title">Yuk coba lagi di soal berikutnya!</div><div class="ab-explain">'+lv.explain+'</div>';
+    flash(false, null);
   }
+  var nxtBtn = $$("pat-next");
+  nxtBtn.classList.remove("hidden");
+  nxtBtn.textContent = (patLv>=PAT_LV.length-1) ? "Lihat Hasil 🏆" : "Soal Berikutnya →";
+}
+
+function nextPat() {
+  if(patLv >= PAT_LV.length-1) { showResult("pattern", patPts); }
+  else { patLv++; renderPat(); }
 }
 
 
-/* ══════════════════════════════════════════════════════
-   GAME 4 — KETIK KODENYA!
-   Tampilkan contoh kode, user ketik versi baru sesuai soal
-══════════════════════════════════════════════════════ */
-var TYP_LEVELS = [
-  // ── 1 ──
+/* ═══════════════════════════════════════════════════════
+   GAME 4 — KETIK KODENYA!  (8 soal, sangat mudah untuk SD)
+   Konsep: satu kata / satu angka yang diubah saja
+═══════════════════════════════════════════════════════ */
+var TYP_LV = [
   { badge:"Mudah",
-    task:"Contoh kode mencetak 'Selamat Pagi'. Sekarang tulis kode untuk mencetak 'Selamat Malam'.",
-    example: 'print("Selamat Pagi")',
-    answer:  'print("Selamat Malam")',
-    hint:"Ganti teks di dalam tanda kutip.",
-  },
-  // ── 2 ──
+    story:"Robot mau menyapa dengan kata 'Halo'.",
+    example:'print("Halo")',
+    task:'Sekarang ketik kode untuk mencetak kata "Pagi".',
+    answer:'print("Pagi")',
+    explain:'print() dipakai untuk menampilkan teks. Ganti isinya dengan kata yang diinginkan!' },
   { badge:"Mudah",
-    task:"Contoh mengecek apakah x = 5. Sekarang tulis kode untuk mengecek apakah x = 10.",
-    example: 'if x == 5:\n    print("x adalah lima")',
-    answer:  'if x == 10:\n    print("x adalah sepuluh")',
-    hint:"Ganti angkanya dan teksnya.",
-  },
-  // ── 3 ──
+    story:"Robot menyimpan umur seseorang.",
+    example:'umur = 10',
+    task:'Ketik kode untuk menyimpan umur = 12.',
+    answer:'umur = 12',
+    explain:'Kita simpan angka ke dalam kotak bernama umur. Ganti angkanya sesuai perintah!' },
   { badge:"Mudah",
-    task:"Contoh mencetak angka 1 sampai 3. Sekarang tulis kode untuk mencetak angka 1 sampai 5.",
-    example: 'for i in range(1, 4):\n    print(i)',
-    answer:  'for i in range(1, 6):\n    print(i)',
-    hint:"range(1, 4) menghasilkan 1,2,3. Untuk 1 sampai 5, gunakan range(1, 6).",
-  },
-  // ── 4 ──
+    story:"Robot menyimpan nama teman.",
+    example:'nama = "Budi"',
+    task:'Ketik kode untuk menyimpan nama = "Ani".',
+    answer:'nama = "Ani"',
+    explain:'Tanda = artinya "simpan". Di sini kita simpan kata Ani ke dalam kotak bernama nama.' },
   { badge:"Mudah",
-    task:"Contoh menyapa dengan nama 'Budi'. Sekarang tulis kode untuk menyapa nama 'Sari'.",
-    example: 'nama = "Budi"\nprint("Halo, " + nama)',
-    answer:  'nama = "Sari"\nprint("Halo, " + nama)',
-    hint:"Ganti nilai variabel nama menjadi 'Sari'.",
-  },
-  // ── 5 ──
+    story:"Robot mengucapkan salam 3 kali berturut-turut.",
+    example:'print("Salam")\nprint("Salam")\nprint("Salam")',
+    task:'Ketik kode untuk mencetak kata "Hore" sebanyak 3 kali (baris per baris).',
+    answer:'print("Hore")\nprint("Hore")\nprint("Hore")',
+    explain:'Kita bisa panggil print() berkali-kali. Setiap print() mencetak satu baris!' },
   { badge:"Sedang",
-    task:"Contoh mengecek nilai 80 lulus atau tidak (batas lulus 70). Sekarang tulis kode untuk nilai 65.",
-    example: 'nilai = 80\nif nilai >= 70:\n    print("Lulus")\nelse:\n    print("Tidak Lulus")',
-    answer:  'nilai = 65\nif nilai >= 70:\n    print("Lulus")\nelse:\n    print("Tidak Lulus")',
-    hint:"Hanya ubah angka nilainya saja, kondisi if-else tetap sama.",
-  },
-  // ── 6 ──
+    story:"Robot menjumlahkan dua angka.",
+    example:'hasil = 3 + 4\nprint(hasil)',
+    task:'Ketik kode untuk menjumlahkan 5 + 6 dan tampilkan hasilnya.',
+    answer:'hasil = 5 + 6\nprint(hasil)',
+    explain:'Kita simpan hasil penjumlahan ke variabel "hasil", lalu print() untuk menampilkannya. Hasilnya 11!' },
   { badge:"Sedang",
-    task:"Contoh menghitung perkalian 3 hingga 3 kali. Sekarang tulis kode untuk perkalian 5 hingga 4 kali.",
-    example: 'for i in range(1, 4):\n    print(3 * i)',
-    answer:  'for i in range(1, 5):\n    print(5 * i)',
-    hint:"Ganti angka pengali (3→5) dan batas range (4→5).",
-  },
-  // ── 7 ──
+    story:"Robot mencetak angka 1 sampai 3.",
+    example:'print(1)\nprint(2)\nprint(3)',
+    task:'Ketik kode untuk mencetak angka 4, 5, dan 6.',
+    answer:'print(4)\nprint(5)\nprint(6)',
+    explain:'Setiap print() mencetak satu angka. Ganti angka 1,2,3 menjadi 4,5,6!' },
   { badge:"Sedang",
-    task:"Contoh menambahkan angka ke list buah. Sekarang tulis kode untuk menambahkan 'mangga' ke list buah.",
-    example: 'buah = ["apel", "pisang"]\nbuah.append("jeruk")\nprint(buah)',
-    answer:  'buah = ["apel", "pisang"]\nbuah.append("mangga")\nprint(buah)',
-    hint:"Hanya ganti teks di dalam append().",
-  },
-  // ── 8 ──
-  { badge:"Susah",
-    task:"Contoh fungsi menyapa siang. Sekarang tulis fungsi 'sapa_malam' yang mencetak 'Selamat malam, semuanya!'.",
-    example: 'def sapa_siang():\n    print("Selamat siang, semuanya!")\n\nsapa_siang()',
-    answer:  'def sapa_malam():\n    print("Selamat malam, semuanya!")\n\nsapa_malam()',
-    hint:"Ganti nama fungsi (sapa_siang→sapa_malam) dan teks di dalam print.",
-  },
+    story:"Robot menyapa nama seseorang.",
+    example:'nama = "Dito"\nprint("Halo " + nama)',
+    task:'Ketik kode yang sama tapi untuk nama = "Rina".',
+    answer:'nama = "Rina"\nprint("Halo " + nama)',
+    explain:'Variabel nama disimpan dulu, lalu disambung dengan kata "Halo " menggunakan tanda +. Hasilnya: Halo Rina!' },
+  { badge:"Sedang",
+    story:"Robot menghitung banyaknya buku.",
+    example:'buku = 5\nbuku = buku + 3\nprint(buku)',
+    task:'Ketik kode yang sama tapi mulai dari buku = 10, tambah 2.',
+    answer:'buku = 10\nbuku = buku + 2\nprint(buku)',
+    explain:'buku = buku + 2 artinya nilai buku lama ditambah 2. 10 + 2 = 12. Hasilnya 12!' },
 ];
 
 var typLv=0, typPts=0;
-var typTotalLv = TYP_LEVELS.length;
-
-function initTyping() { typLv=0; typPts=0; renderTyp(); }
+function initTyp() { typLv=0; typPts=0; renderTyp(); }
 
 function renderTyp() {
-  var lv = TYP_LEVELS[typLv];
-  setGameScore(typPts,"typing");
-  setProgress(typLv, typTotalLv, "typing");
-  animateBody();
-
+  var lv=TYP_LV[typLv];
+  setScore(typPts,"typing");
+  setProg(typLv,TYP_LV.length,"typing");
+  animBody();
   setH("game-body",
     '<div class="q-chip '+chipCls(lv.badge)+'">'+lv.badge+'</div>'+
-
-    // Contoh kode
+    '<div class="q-scene">'+lv.story+'</div>'+
     '<div class="typing-example">'+
-      '<div class="typing-example-label">Contoh Kode</div>'+
-      '<pre>'+escapeHTML(lv.example)+'</pre>'+
+      '<div class="typing-ex-label">Contoh Kode</div>'+
+      '<pre>'+escHTML(lv.example)+'</pre>'+
     '</div>'+
-
-    // Tugas
     '<div class="typing-task">'+
-      '<div class="typing-task-label">Tugasmu</div>'+
+      '<div class="typing-task-label">✏️ Tugasmu</div>'+
       '<div class="typing-task-text">'+lv.task+'</div>'+
     '</div>'+
-
-    // Input
-    '<div class="typing-input-wrap">'+
-      '<textarea id="typ-input" class="typing-input" placeholder="Ketik kode kamu di sini..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>'+
-    '</div>'+
-    '<div class="typing-hint-row">💡 '+lv.hint+'</div>'+
-    '<button class="btn-submit" onclick="checkTyp()">Periksa Kode ✓</button>'+
-    '<div class="typing-fb" id="typ-fb"></div>'+
-
-    // Reveal jawaban
-    '<div class="typing-answer-reveal" id="typ-reveal">'+
-      '<div class="typing-answer-label">Jawaban yang benar</div>'+
-      '<div class="typing-answer-code" id="typ-answer-code"></div>'+
-    '</div>'+
-
-    '<div class="q-info">Soal '+(typLv+1)+' dari '+typTotalLv+' &nbsp;·&nbsp; Poin: <strong>'+typPts+'</strong></div>'
+    '<textarea id="typ-in" class="typing-input" placeholder="Ketik kodenya di sini..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>'+
+    '<button class="btn-submit" id="typ-submit" onclick="checkTyp()">Periksa ✓</button>'+
+    '<div class="answer-box hidden" id="typ-answer-box"></div>'+
+    '<div style="margin-top:14px;"><button class="btn-next hidden" id="typ-next" onclick="nextTyp()">Soal Berikutnya →</button></div>'+
+    '<div class="q-info">Soal '+(typLv+1)+' dari '+TYP_LV.length+' · Poin: <strong>'+typPts+'</strong></div>'
   );
-
-  // Auto focus
-  setTimeout(function(){ var inp=$("typ-input"); if(inp) inp.focus(); }, 100);
+  setTimeout(function(){ var el=$$("typ-in"); if(el) el.focus(); }, 120);
 }
 
-function escapeHTML(str) {
-  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function escHTML(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
-
-function normalizeCode(str) {
-  // normalize: lowercase, collapse spaces, trim each line
-  return str.split("\n")
-    .map(function(l){ return l.trim(); })
-    .filter(function(l){ return l.length > 0; })
-    .join("\n")
-    .toLowerCase()
-    .replace(/\s+/g," ");
+function normCode(s) {
+  return s.split("\n").map(function(l){return l.trim();}).filter(Boolean).join("\n").toLowerCase().replace(/[ \t]+/g," ");
 }
 
 function checkTyp() {
-  var lv   = TYP_LEVELS[typLv];
-  var inp  = $("typ-input");
-  var val  = inp.value;
-  var ok   = normalizeCode(val) === normalizeCode(lv.answer);
-  var fb   = $("typ-fb");
-  var rev  = $("typ-reveal");
+  var lv=TYP_LV[typLv];
+  var inp=$$("typ-in"); if(!inp) return;
+  var ok = normCode(inp.value) === normCode(lv.answer);
+  inp.classList.remove("ok-input","err-input");
+  inp.classList.add(ok?"ok-input":"err-input");
+  $$("typ-submit").disabled = true;
 
-  // disable submit
-  document.querySelector(".btn-submit").disabled = true;
-
-  inp.classList.remove("correct-input","wrong-input");
-  inp.classList.add(ok ? "correct-input" : "wrong-input");
-
-  if(ok) {
-    typPts += 20;
-    fb.textContent = "Kode benar! +20 poin 🎉";
-    fb.className   = "typing-fb ok";
-    setGameScore(typPts,"typing");
-    flashOverlay(true, function(){
-      if(typLv >= typTotalLv-1){ showResult("typing",typPts); }
-      else { typLv++; renderTyp(); }
-    });
+  var box = $$("typ-answer-box");
+  box.classList.remove("hidden");
+  if(ok){
+    typPts+=20;
+    setScore(typPts,"typing");
+    box.className = "answer-box answer-ok";
+    box.innerHTML = '<div class="ab-icon">🎉</div><div class="ab-title">Kode benar! +20 poin</div><div class="ab-explain">'+lv.explain+'</div>';
+    flash(true, null);
   } else {
-    fb.textContent = "Belum tepat. Lihat jawaban yang benar di bawah.";
-    fb.className   = "typing-fb err";
-    rev.classList.add("show");
-    $("typ-answer-code").textContent = lv.answer;
-    flashOverlay(false, function(){
-      setTimeout(function(){
-        if(typLv >= typTotalLv-1){ showResult("typing",typPts); }
-        else { typLv++; renderTyp(); }
-      }, 2000);
-    });
+    box.className = "answer-box answer-err";
+    box.innerHTML =
+      '<div class="ab-icon">💡</div>'+
+      '<div class="ab-title">Belum tepat. Ini jawaban yang benar:</div>'+
+      '<pre class="ab-code">'+escHTML(lv.answer)+'</pre>'+
+      '<div class="ab-explain">'+lv.explain+'</div>';
+    flash(false, null);
   }
+  var nxt = $$("typ-next");
+  nxt.classList.remove("hidden");
+  nxt.textContent = (typLv>=TYP_LV.length-1) ? "Lihat Hasil 🏆" : "Soal Berikutnya →";
+}
+
+function nextTyp() {
+  if(typLv >= TYP_LV.length-1) { showResult("typing", typPts); }
+  else { typLv++; renderTyp(); }
 }
