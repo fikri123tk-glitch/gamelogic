@@ -1,8 +1,3 @@
-/* ═══════════════════════════════════════════════════════
-   app.js — CoderKid  |  4 Games  |  Vanilla JS
-═══════════════════════════════════════════════════════ */
-
-/* ── Avatar pick (shared) ────────────────────────────── */
 var AVATARS = ["🐱","🐶","🐸","🦊","🐼","🐨","🦁","🐯"];
 var MY_AVATAR = AVATARS[Math.floor(Math.random() * AVATARS.length)];
 document.getElementById("home-avatar").textContent = MY_AVATAR;
